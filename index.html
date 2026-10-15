@@ -35,10 +35,17 @@
     }
     #legend .title { opacity: 0.75; margin-bottom: 6px; }
     #legend .swatch {
-      height: 10px; border-radius: 999px; margin-bottom: 6px;
+      height: 10px; border-radius: 999px; margin-bottom: 4px;
       background: linear-gradient(90deg,
-        #2a6fb5 0%, #5aa06a 12%, #c4b46a 28%, #b07a3a 48%,
-        #8a6a4a 68%, #9a9a9a 85%, #f2f4f8 100%);
+        #1a6a88 0%, #2d8f7a 8%, #3fa06a 16%, #5ab05a 24%,
+        #7ec85a 32%, #a8c868 40%, #c4b46a 48%, #b07a3a 62%,
+        #8a6a4a 74%, #9a9a9a 88%, #f2f4f8 100%);
+    }
+    #legend .swatch-plain {
+      height: 8px; border-radius: 999px; margin: 6px 0 4px;
+      background: linear-gradient(90deg,
+        #1a6a88 0%, #2d8f7a 20%, #3fa06a 40%, #5ab05a 60%,
+        #7ec85a 80%, #a8c868 100%);
     }
     #legend .row { display: flex; justify-content: space-between; opacity: 0.8; }
     #legend .water {
@@ -284,9 +291,11 @@
   </div>
   <div id="hud">
     <div id="legend">
-      <div class="title">宏观地形</div>
+      <div class="title">宏观地形 · 海拔着色</div>
       <div class="swatch"></div>
-      <div class="row"><span>平原 · 河</span><span>山脊 · 高峰</span></div>
+      <div class="row"><span>低 · 平原</span><span>山脊 · 高峰</span></div>
+      <div class="swatch-plain"></div>
+      <div class="row"><span>平原 东南 ~20m</span><span>西北 ~60–100m</span></div>
       <div class="water"><i></i><span>永定河 · 潮白河 · 水库</span></div>
       <div class="water" style="margin-top:6px;opacity:0.55">
         <i style="background:#a8b4c4;box-shadow:none;opacity:0.55;height:2px"></i><span>市域区界（淡）</span>
@@ -423,25 +432,37 @@
       controls.update();
     });
 
-    const HEIGHT_STOPS = [
-      { t: 0.00, c: new THREE.Color(0x2a6fb5) },
-      { t: 0.06, c: new THREE.Color(0x4a9a6a) },
-      { t: 0.14, c: new THREE.Color(0x8fbf6a) },
-      { t: 0.28, c: new THREE.Color(0xc4b46a) },
-      { t: 0.45, c: new THREE.Color(0xb07a3a) },
-      { t: 0.62, c: new THREE.Color(0x8a6a4a) },
-      { t: 0.78, c: new THREE.Color(0x8e8e8e) },
-      { t: 0.90, c: new THREE.Color(0xc8c8c8) },
-      { t: 1.00, c: new THREE.Color(0xf2f4f8) },
+    // True elevation meters (from heights_meta.json). Mesh Y is linear with elev
+    // after VERTICAL_BOOST, so world-Y → meters via z_floor / z_max.
+    const ELEV_Z_FLOOR = -5.0;
+    const ELEV_Z_MAX = 2810.146728515625;
+    // Fine ramp through the Beijing plain (~20–100 m NW vs SE), then hills/peaks.
+    const HEIGHT_STOPS_M = [
+      { m: -5,   c: new THREE.Color(0x1a5a78) }, // lowest basins
+      { m: 15,   c: new THREE.Color(0x1f7088) }, // SE fringe
+      { m: 22,   c: new THREE.Color(0x2d8f7a) }, // SE plain ~20–25 m (大兴/通州)
+      { m: 32,   c: new THREE.Color(0x3a9e6a) },
+      { m: 42,   c: new THREE.Color(0x52b05a) }, // urban ~40–50 m
+      { m: 55,   c: new THREE.Color(0x6ec05a) }, // NW piedmont start
+      { m: 70,   c: new THREE.Color(0x8ed058) },
+      { m: 100,  c: new THREE.Color(0xb0c868) }, // plain upper / low hills
+      { m: 200,  c: new THREE.Color(0xc4b46a) },
+      { m: 400,  c: new THREE.Color(0xb07a3a) },
+      { m: 800,  c: new THREE.Color(0x8a6a4a) },
+      { m: 1400, c: new THREE.Color(0x8e8e8e) },
+      { m: 2000, c: new THREE.Color(0xc8c8c8) },
+      { m: 2810, c: new THREE.Color(0xf2f4f8) },
     ];
 
-    function sampleHeightColor(t, out) {
-      const x = Math.min(1, Math.max(0, t));
+    function sampleHeightColorMeters(elevM, out) {
+      const stops = HEIGHT_STOPS_M;
+      if (elevM <= stops[0].m) return out.copy(stops[0].c);
+      if (elevM >= stops[stops.length - 1].m) return out.copy(stops[stops.length - 1].c);
       let i = 0;
-      while (i < HEIGHT_STOPS.length - 2 && HEIGHT_STOPS[i + 1].t < x) i++;
-      const a = HEIGHT_STOPS[i];
-      const b = HEIGHT_STOPS[i + 1];
-      const u = (x - a.t) / Math.max(1e-6, b.t - a.t);
+      while (i < stops.length - 2 && stops[i + 1].m < elevM) i++;
+      const a = stops[i];
+      const b = stops[i + 1];
+      const u = (elevM - a.m) / Math.max(1e-6, b.m - a.m);
       return out.copy(a.c).lerp(b.c, u);
     }
 
@@ -461,12 +482,13 @@
         if (wy > yMax) yMax = wy;
       }
       const span = Math.max(1e-4, yMax - yMin);
+      const elevSpan = Math.max(1, ELEV_Z_MAX - ELEV_Z_FLOOR);
       const colors = new Float32Array(pos.count * 3);
       const tmp = new THREE.Color();
       for (let i = 0; i < pos.count; i++) {
-        let t = (ys[i] - yMin) / span;
-        t = Math.pow(t, 0.72);
-        sampleHeightColor(t, tmp);
+        // Linear world-Y → true meters (no power curve; plain budget is in stops)
+        const elevM = ELEV_Z_FLOOR + ((ys[i] - yMin) / span) * elevSpan;
+        sampleHeightColorMeters(elevM, tmp);
         colors[i * 3] = tmp.r;
         colors[i * 3 + 1] = tmp.g;
         colors[i * 3 + 2] = tmp.b;
