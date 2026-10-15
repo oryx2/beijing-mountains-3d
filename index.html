@@ -85,11 +85,19 @@
       visibility: visible;
       opacity: 1;
     }
+    .geo-label.always {
+      visibility: visible;
+      opacity: 0.9;
+    }
     .geo-label.district {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 500;
-      color: rgba(236, 242, 252, 0.92);
-      background: rgba(12, 22, 40, 0.62);
+      color: rgba(236, 242, 252, 0.9);
+      background: rgba(12, 22, 40, 0.45);
+      border-color: rgba(255,255,255,0.12);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.22);
+      transform: translate(-50%, -50%);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.45);
     }
     .geo-label.mountain {
       font-size: 12px;
@@ -249,7 +257,7 @@
 <body>
   <header>
     <h1>北京山川地形</h1>
-    <p>北京市域 · 区界 · 高度夸张 · 拖动旋转 · 滚轮缩放 · 圆点悬停显示地名</p>
+    <p>北京市域 · 区界 · 区名常显 · 高度夸张 · 拖动旋转 · 滚轮缩放 · 山/河湖圆点悬停显示地名</p>
   </header>
   <div id="canvas-wrap"></div>
   <div id="status">
@@ -265,7 +273,7 @@
       <div class="water" style="margin-top:4px;opacity:0.85">
         <i style="background:#d8e0ec;box-shadow:none;opacity:0.85"></i><span>行政区界</span>
       </div>
-      <div class="water" style="margin-top:4px;opacity:0.75"><span>小圆点可悬停看名称</span></div>
+      <div class="water" style="margin-top:4px;opacity:0.75"><span>区名常显 · 山/河湖圆点悬停看名称</span></div>
     </div>
     <button id="btn-reset" type="button" title="重置视角">重置视角</button>
   </div>
@@ -285,7 +293,7 @@
     </div>
     <div class="caption">南北指示</div>
   </div>
-  <div id="hint">左键旋转 · 右键平移 · 滚轮缩放<br/>山高已夸张 · 区界常显 · 小圆点可悬停/点按看名称</div>
+  <div id="hint">左键旋转 · 右键平移 · 滚轮缩放<br/>山高已夸张 · 区界与区名常显 · 山/河湖圆点可悬停/点按看名称</div>
 
   <script type="importmap">
   {
@@ -754,9 +762,15 @@
     labelHitsGroup.name = "LabelHits";
     scene.add(labelHitsGroup);
 
+    function isAlwaysLabel(entry) {
+      return entry && entry.el && entry.el.classList.contains("always");
+    }
+
     function hideAllLabels() {
       if (activeLabelEntry) {
-        activeLabelEntry.el.classList.remove("visible");
+        if (!isAlwaysLabel(activeLabelEntry)) {
+          activeLabelEntry.el.classList.remove("visible");
+        }
         activeLabelEntry = null;
       }
       clearPlaceHighlight();
@@ -765,10 +779,12 @@
 
     function showLabelEntry(entry) {
       if (activeLabelEntry === entry) return;
-      if (activeLabelEntry) activeLabelEntry.el.classList.remove("visible");
+      if (activeLabelEntry && !isAlwaysLabel(activeLabelEntry)) {
+        activeLabelEntry.el.classList.remove("visible");
+      }
       activeLabelEntry = entry;
       if (entry) {
-        entry.el.classList.add("visible");
+        if (!isAlwaysLabel(entry)) entry.el.classList.add("visible");
         renderer.domElement.style.cursor = "help";
         applyPlaceHighlight(entry);
       } else {
@@ -842,33 +858,41 @@
         const boost = kind === "mountain" ? 1.8 : kind === "district" ? 1.0 : 1.25;
         y += ySpan * LABEL_LIFT_FRAC * boost;
 
-        const el = makeLabelEl(name, kind || "district");
+        const kindKey = kind || "district";
+        const el = makeLabelEl(name, kindKey);
+        if (kindKey === "district") {
+          el.classList.add("always", "visible");
+        }
         const obj = new CSS2DObject(el);
         obj.position.set(x, y, z);
-        obj.userData = { kind, name };
+        obj.userData = { kind: kindKey, name };
         group.add(obj);
 
-        const markerEl = document.createElement("div");
-        markerEl.className = `place-marker ${kind || "district"}`;
-        markerEl.setAttribute("aria-hidden", "true");
-        const marker = new CSS2DObject(markerEl);
-        marker.position.set(x, y, z);
-        marker.userData = { kind, name, marker: true };
-        group.add(marker);
+        let markerEl = null;
+        // Districts: names always on, no hover dots. Mountains/lakes/rivers keep dots.
+        if (kindKey !== "district") {
+          markerEl = document.createElement("div");
+          markerEl.className = `place-marker ${kindKey}`;
+          markerEl.setAttribute("aria-hidden", "true");
+          const marker = new CSS2DObject(markerEl);
+          marker.position.set(x, y, z);
+          marker.userData = { kind: kindKey, name, marker: true };
+          group.add(marker);
+        }
 
         const hit = new THREE.Mesh(hitGeo, hitMat);
         hit.position.set(x, y, z);
-        hit.userData = { kind, name, hitRadius };
-        // Keep raycastable even when material is invisible
+        hit.userData = { kind: kindKey, name, hitRadius };
+        // Keep raycastable even when material is invisible (districts: outline highlight)
         hit.visible = true;
         labelHitsGroup.add(hit);
 
-        labelEntries.push({ label: obj, hit, el, name, kind, markerEl });
+        labelEntries.push({ label: obj, hit, el, name, kind: kindKey, markerEl });
         placed++;
       }
       scene.add(group);
       setupLabelHover();
-      console.info(`labels placed: ${placed} (hover names + markers, hitR=${hitRadius.toFixed(1)})`);
+      console.info(`labels placed: ${placed} (district names always on; mountain/water hover dots, hitR=${hitRadius.toFixed(1)})`);
       return group;
     }
 
