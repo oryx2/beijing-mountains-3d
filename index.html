@@ -67,8 +67,8 @@
   <script type="importmap">
   {
     "imports": {
-      "three": "https://registry.npmmirror.com/three/0.170.0/files/build/three.module.js",
-      "three/addons/": "https://registry.npmmirror.com/three/0.170.0/files/examples/jsm/"
+      "three": "./vendor/three/build/three.module.js",
+      "three/addons/": "./vendor/three/examples/jsm/"
     }
   }
   </script>
@@ -76,6 +76,7 @@
     import * as THREE from "three";
     import { OrbitControls } from "three/addons/controls/OrbitControls.js";
     import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+    import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
     import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
     const wrap = document.getElementById("canvas-wrap");
@@ -151,6 +152,12 @@
     });
 
     const loader = new GLTFLoader();
+    try {
+      await MeshoptDecoder.ready;
+      loader.setMeshoptDecoder(MeshoptDecoder);
+    } catch (e) {
+      console.warn("MeshoptDecoder unavailable", e);
+    }
     loader.load(
       "./beijing_mountains.glb",
       (gltf) => {
