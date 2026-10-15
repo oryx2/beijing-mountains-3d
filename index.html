@@ -77,6 +77,13 @@
       border: 1px solid rgba(255,255,255,0.14);
       transform: translate(-50%, -100%);
       line-height: 1.35;
+      visibility: hidden;
+      opacity: 0;
+      transition: opacity 0.12s ease;
+    }
+    .geo-label.visible {
+      visibility: visible;
+      opacity: 1;
     }
     .geo-label.district {
       font-size: 11px;
@@ -108,7 +115,7 @@
 <body>
   <header>
     <h1>北京山川地形</h1>
-    <p>北京市域 · 区界 · 区县 / 名山 / 湖河标注 · 高度夸张 · 拖动旋转 · 滚轮缩放</p>
+    <p>北京市域 · 区界 · 高度夸张 · 拖动旋转 · 滚轮缩放 · 悬停显示地名</p>
   </header>
   <div id="canvas-wrap"></div>
   <div id="status">
@@ -124,11 +131,11 @@
       <div class="water" style="margin-top:4px;opacity:0.85">
         <i style="background:#d8e0ec;box-shadow:none;opacity:0.85"></i><span>行政区界</span>
       </div>
-      <div class="water" style="margin-top:4px;opacity:0.75"><span>区县 · 名山 · 湖河标注</span></div>
+      <div class="water" style="margin-top:4px;opacity:0.75"><span>悬停地点显示名称</span></div>
     </div>
     <button id="btn-reset" type="button" title="重置视角">重置视角</button>
   </div>
-  <div id="hint">左键旋转 · 右键平移 · 滚轮缩放<br/>山高已夸张 · 区界 + 标注：区县 / 山 / 湖河</div>
+  <div id="hint">左键旋转 · 右键平移 · 滚轮缩放<br/>山高已夸张 · 区界常显 · 鼠标移到地点附近显示名称</div>
 
   <script type="importmap">
   {
@@ -424,21 +431,89 @@
       return el;
     }
 
+    const labelEntries = []; // { label, hit, el }
+    let activeLabelEntry = null;
+    const labelRaycaster = new THREE.Raycaster();
+    const labelPointer = new THREE.Vector2();
+    const labelHitsGroup = new THREE.Group();
+    labelHitsGroup.name = "LabelHits";
+    scene.add(labelHitsGroup);
+
+    function hideAllLabels() {
+      if (activeLabelEntry) {
+        activeLabelEntry.el.classList.remove("visible");
+        activeLabelEntry = null;
+      }
+      renderer.domElement.style.cursor = "";
+    }
+
+    function showLabelEntry(entry) {
+      if (activeLabelEntry === entry) return;
+      if (activeLabelEntry) activeLabelEntry.el.classList.remove("visible");
+      activeLabelEntry = entry;
+      if (entry) {
+        entry.el.classList.add("visible");
+        renderer.domElement.style.cursor = "help";
+      } else {
+        renderer.domElement.style.cursor = "";
+      }
+    }
+
+    function pickLabelAt(clientX, clientY) {
+      if (!labelEntries.length) return null;
+      const rect = renderer.domElement.getBoundingClientRect();
+      labelPointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      labelPointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      labelRaycaster.setFromCamera(labelPointer, camera);
+      const hits = labelRaycaster.intersectObjects(labelHitsGroup.children, false);
+      if (!hits.length) return null;
+      const hitObj = hits[0].object;
+      return labelEntries.find((e) => e.hit === hitObj) || null;
+    }
+
+    function setupLabelHover() {
+      const canvas = renderer.domElement;
+      canvas.addEventListener("pointermove", (ev) => {
+        if (ev.pointerType === "touch") return; // touch handled via tap
+        const entry = pickLabelAt(ev.clientX, ev.clientY);
+        showLabelEntry(entry);
+      });
+      canvas.addEventListener("pointerleave", () => {
+        hideAllLabels();
+      });
+      // Tap: show nearest label until next tap (or hide if same / miss)
+      canvas.addEventListener("pointerup", (ev) => {
+        if (ev.pointerType !== "touch" && ev.pointerType !== "pen") return;
+        const entry = pickLabelAt(ev.clientX, ev.clientY);
+        if (!entry) {
+          hideAllLabels();
+          return;
+        }
+        if (activeLabelEntry === entry) hideAllLabels();
+        else showLabelEntry(entry);
+      });
+    }
+
     async function addLabels(terrainRoot, grid) {
       const data = await (await fetch("./labels.json")).json();
       terrainRoot.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(terrainRoot);
       const bounds = data.bounds || grid.meta.bounds;
       const ySpan = box.max.y - box.min.y;
+      const spanXZ = Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
+      const hitRadius = Math.max(8, spanXZ * 0.012);
       const group = new THREE.Group();
       group.name = "GeoLabels";
+      const hitMat = new THREE.MeshBasicMaterial({
+        transparent: true, opacity: 0, depthWrite: false, depthTest: true,
+      });
+      const hitGeo = new THREE.SphereGeometry(hitRadius, 10, 8);
       let placed = 0;
       for (const lab of data.labels || []) {
         const { lon, lat, name, kind } = lab;
         if (![lon, lat].every(Number.isFinite) || !name) continue;
         let h = sampleGrid(grid, lon, lat);
         if (!Number.isFinite(h)) {
-          // soft fallback: slightly inside bounds sample
           h = sampleGrid(grid,
             Math.min(bounds.east - 1e-4, Math.max(bounds.west + 1e-4, lon)),
             Math.min(bounds.north - 1e-4, Math.max(bounds.south + 1e-4, lat)));
@@ -446,17 +521,28 @@
         if (!Number.isFinite(h)) continue;
         const { x, z } = lonLatToXZ(lon, lat, bounds, box);
         let y = elevToWorldY(h, grid, box);
-        // mountains float a bit higher; districts sit closer to ground
         const boost = kind === "mountain" ? 1.6 : kind === "district" ? 0.7 : 1.0;
         y += ySpan * LABEL_LIFT_FRAC * boost;
-        const obj = new CSS2DObject(makeLabelEl(name, kind || "district"));
+
+        const el = makeLabelEl(name, kind || "district");
+        const obj = new CSS2DObject(el);
         obj.position.set(x, y, z);
         obj.userData = { kind, name };
         group.add(obj);
+
+        const hit = new THREE.Mesh(hitGeo, hitMat);
+        hit.position.set(x, y, z);
+        hit.userData = { kind, name };
+        // Keep raycastable even when material is invisible
+        hit.visible = true;
+        labelHitsGroup.add(hit);
+
+        labelEntries.push({ label: obj, hit, el, name, kind });
         placed++;
       }
       scene.add(group);
-      console.info(`labels placed: ${placed}`);
+      setupLabelHover();
+      console.info(`labels placed: ${placed} (hover-only, hitR=${hitRadius.toFixed(1)})`);
       return group;
     }
 
