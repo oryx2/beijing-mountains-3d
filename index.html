@@ -27,6 +27,20 @@
       cursor: pointer; backdrop-filter: blur(8px);
     }
     button:hover { background: rgba(36, 58, 92, 0.9); }
+    #legend {
+      pointer-events: none;
+      background: rgba(16, 28, 48, 0.82); border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 10px; padding: 10px 12px; font-size: 0.72rem; line-height: 1.35;
+      backdrop-filter: blur(8px); min-width: 148px;
+    }
+    #legend .title { opacity: 0.75; margin-bottom: 6px; }
+    #legend .swatch {
+      height: 10px; border-radius: 999px; margin-bottom: 6px;
+      background: linear-gradient(90deg,
+        #2a6fb5 0%, #5aa06a 12%, #c4b46a 28%, #b07a3a 48%,
+        #8a6a4a 68%, #9a9a9a 85%, #f2f4f8 100%);
+    }
+    #legend .row { display: flex; justify-content: space-between; opacity: 0.8; }
     #status {
       position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
       z-index: 5; text-align: center; pointer-events: none;
@@ -52,7 +66,7 @@
 <body>
   <header>
     <h1>北京山川地形</h1>
-    <p>北京市域边界 · 西山 / 军都山 · Copernicus DEM · 拖动旋转 · 滚轮缩放</p>
+    <p>北京市域边界 · 西山 / 军都山 · Copernicus DEM · 高度着色 · 拖动旋转 · 滚轮缩放</p>
   </header>
   <div id="canvas-wrap"></div>
   <div id="status">
@@ -60,6 +74,11 @@
     <div class="bar"><i id="progress"></i></div>
   </div>
   <div id="hud">
+    <div id="legend">
+      <div class="title">海拔着色</div>
+      <div class="swatch"></div>
+      <div class="row"><span>平原 / 河</span><span>高山</span></div>
+    </div>
     <button id="btn-reset" type="button" title="重置视角">重置视角</button>
   </div>
   <div id="hint">左键旋转 · 右键平移 · 滚轮缩放</div>
@@ -90,20 +109,19 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    renderer.toneMappingExposure = 1.15;
     wrap.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87b5e0);
-    scene.fog = new THREE.Fog(0x87b5e0, 1800, 5200);
+    scene.background = new THREE.Color(0x7eb6e8);
+    scene.fog = new THREE.Fog(0x7eb6e8, 1800, 5200);
 
-    // Soft gradient sky via hemisphere + directional lights
-    const hemi = new THREE.HemisphereLight(0xcfe8ff, 0x4a5a3a, 0.85);
+    const hemi = new THREE.HemisphereLight(0xd8ecff, 0x5a6a40, 0.95);
     scene.add(hemi);
-    const sun = new THREE.DirectionalLight(0xfff2d6, 1.35);
+    const sun = new THREE.DirectionalLight(0xfff0d2, 1.55);
     sun.position.set(600, 900, 400);
     scene.add(sun);
-    const fill = new THREE.DirectionalLight(0xa8c4ff, 0.35);
+    const fill = new THREE.DirectionalLight(0xa8c4ff, 0.4);
     fill.position.set(-500, 300, -600);
     scene.add(fill);
 
@@ -140,7 +158,6 @@
       controls.update();
       defaultCam = camera.position.clone();
       defaultTarget = controls.target.clone();
-      // Fog relative to size
       scene.fog.near = maxDim * 0.9;
       scene.fog.far = maxDim * 3.2;
     }
@@ -150,6 +167,77 @@
       controls.target.copy(defaultTarget);
       controls.update();
     });
+
+    // Height stops in meters (approx Beijing DEM); mesh Y = (h - z_floor) * z_exag * 0.01
+    // We color by relative Y within the terrain mesh so it stays correct even if scale changes.
+    const HEIGHT_STOPS = [
+      { t: 0.00, c: new THREE.Color(0x2a6fb5) }, // very low / water-ish
+      { t: 0.06, c: new THREE.Color(0x4a9a6a) }, // low plains green
+      { t: 0.14, c: new THREE.Color(0x8fbf6a) }, // plains
+      { t: 0.28, c: new THREE.Color(0xc4b46a) }, // foothills tan
+      { t: 0.45, c: new THREE.Color(0xb07a3a) }, // mid hills brown
+      { t: 0.62, c: new THREE.Color(0x8a6a4a) }, // high hills
+      { t: 0.78, c: new THREE.Color(0x8e8e8e) }, // rock gray
+      { t: 0.90, c: new THREE.Color(0xc8c8c8) }, // high peaks
+      { t: 1.00, c: new THREE.Color(0xf2f4f8) }, // snow / summit
+    ];
+
+    function sampleHeightColor(t, out) {
+      const x = Math.min(1, Math.max(0, t));
+      let i = 0;
+      while (i < HEIGHT_STOPS.length - 2 && HEIGHT_STOPS[i + 1].t < x) i++;
+      const a = HEIGHT_STOPS[i];
+      const b = HEIGHT_STOPS[i + 1];
+      const u = (x - a.t) / Math.max(1e-6, b.t - a.t);
+      return out.copy(a.c).lerp(b.c, u);
+    }
+
+    function applyHeightColors(mesh) {
+      const geom = mesh.geometry;
+      const pos = geom.attributes.position;
+      if (!pos) return;
+
+      // Use world Y after mesh matrix (glTF Y-up = elevation)
+      mesh.updateWorldMatrix(true, false);
+      const e = mesh.matrixWorld.elements;
+      // worldY = e1*x + e5*y + e9*z + e13
+      let yMin = Infinity, yMax = -Infinity;
+      const ys = new Float32Array(pos.count);
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+        const wy = e[1] * x + e[5] * y + e[9] * z + e[13];
+        ys[i] = wy;
+        if (wy < yMin) yMin = wy;
+        if (wy > yMax) yMax = wy;
+      }
+      // Ignore extreme flat floor if present: use 2nd–98th percentile-ish via clamp on span
+      const span = Math.max(1e-4, yMax - yMin);
+      // Soft-power curve so plains/hills separate more (most Beijing area is low)
+      const colors = new Float32Array(pos.count * 3);
+      const tmp = new THREE.Color();
+      for (let i = 0; i < pos.count; i++) {
+        let t = (ys[i] - yMin) / span;
+        // emphasize mid/high: gamma < 1 stretches lows less, highs more visible
+        t = Math.pow(t, 0.72);
+        sampleHeightColor(t, tmp);
+        colors[i * 3] = tmp.r;
+        colors[i * 3 + 1] = tmp.g;
+        colors[i * 3 + 2] = tmp.b;
+      }
+      geom.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+
+      const mat = new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.88,
+        metalness: 0.02,
+        flatShading: false,
+        side: THREE.FrontSide,
+      });
+      if (mesh.material && !Array.isArray(mesh.material)) {
+        mesh.material.dispose?.();
+      }
+      mesh.material = mat;
+    }
 
     const loader = new GLTFLoader();
     try {
@@ -163,24 +251,25 @@
       (gltf) => {
         const root = gltf.scene;
         root.traverse((obj) => {
-          if (obj.isMesh) {
-            obj.castShadow = false;
-            obj.receiveShadow = false;
-            if (obj.material) {
-              const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-              for (const m of mats) {
-                m.side = THREE.FrontSide;
-                if (m.color && m.name && /river/i.test(m.name + (obj.name || ""))) {
-                  m.emissive = new THREE.Color(0x1a3a66);
-                  m.emissiveIntensity = 0.25;
-                }
-              }
-            }
-            // Slightly lift river meshes if named
-            if (/river/i.test(obj.name || "")) {
-              obj.position.y += 0.4;
-            }
+          if (!obj.isMesh) return;
+          obj.castShadow = false;
+          obj.receiveShadow = false;
+          const name = `${obj.name || ""} ${obj.material?.name || ""}`;
+          if (/river/i.test(name)) {
+            obj.position.y += 0.4;
+            const riverMat = new THREE.MeshStandardMaterial({
+              color: 0x2f6fb8,
+              roughness: 0.35,
+              metalness: 0.05,
+              emissive: 0x123a66,
+              emissiveIntensity: 0.35,
+              side: THREE.DoubleSide,
+            });
+            if (obj.material && !Array.isArray(obj.material)) obj.material.dispose?.();
+            obj.material = riverMat;
+            return;
           }
+          applyHeightColors(obj);
         });
         scene.add(root);
         fitCameraToObject(root);
