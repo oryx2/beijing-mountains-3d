@@ -41,6 +41,13 @@
         #8a6a4a 68%, #9a9a9a 85%, #f2f4f8 100%);
     }
     #legend .row { display: flex; justify-content: space-between; opacity: 0.8; }
+    #legend .water {
+      margin-top: 8px; display: flex; align-items: center; gap: 8px; opacity: 0.9;
+    }
+    #legend .water i {
+      width: 18px; height: 4px; border-radius: 2px; background: #3a8fd4;
+      box-shadow: 0 0 6px rgba(58,143,212,0.6);
+    }
     #status {
       position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
       z-index: 5; text-align: center; pointer-events: none;
@@ -59,14 +66,14 @@
     }
     #hint {
       position: fixed; left: 16px; bottom: 16px; z-index: 10;
-      font-size: 0.75rem; opacity: 0.55; max-width: 260px; line-height: 1.4;
+      font-size: 0.75rem; opacity: 0.55; max-width: 280px; line-height: 1.4;
     }
   </style>
 </head>
 <body>
   <header>
     <h1>北京山川地形</h1>
-    <p>北京市域边界 · 西山 / 军都山 · Copernicus DEM · 高度着色 · 拖动旋转 · 滚轮缩放</p>
+    <p>北京市域边界 · 西山 / 军都山 · 高度夸张 · 主要湖河 · 拖动旋转 · 滚轮缩放</p>
   </header>
   <div id="canvas-wrap"></div>
   <div id="status">
@@ -78,10 +85,11 @@
       <div class="title">海拔着色</div>
       <div class="swatch"></div>
       <div class="row"><span>平原 / 河</span><span>高山</span></div>
+      <div class="water"><i></i><span>主要湖河</span></div>
     </div>
     <button id="btn-reset" type="button" title="重置视角">重置视角</button>
   </div>
-  <div id="hint">左键旋转 · 右键平移 · 滚轮缩放</div>
+  <div id="hint">左键旋转 · 右键平移 · 滚轮缩放<br/>山高已夸张显示 · 蓝色为湖河</div>
 
   <script type="importmap">
   {
@@ -97,6 +105,10 @@
     import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
     import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
     import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+
+    // Mesh already has z_exaggeration ≈ 2.0; boost Y → ~5.5× total
+    const VERTICAL_BOOST = 2.75;
+    const WATER_LIFT_FRAC = 0.004; // relative to terrain span
 
     const wrap = document.getElementById("canvas-wrap");
     const statusEl = document.getElementById("status");
@@ -116,8 +128,7 @@
     scene.background = new THREE.Color(0x7eb6e8);
     scene.fog = new THREE.Fog(0x7eb6e8, 1800, 5200);
 
-    const hemi = new THREE.HemisphereLight(0xd8ecff, 0x5a6a40, 0.95);
-    scene.add(hemi);
+    scene.add(new THREE.HemisphereLight(0xd8ecff, 0x5a6a40, 0.95));
     const sun = new THREE.DirectionalLight(0xfff0d2, 1.55);
     sun.position.set(600, 900, 400);
     scene.add(sun);
@@ -151,8 +162,8 @@
       camera.near = Math.max(0.1, maxDim / 500);
       camera.far = maxDim * 20;
       camera.updateProjectionMatrix();
-      camera.position.set(center.x + dist * 0.75, center.y + dist * 0.55, center.z + dist * 0.75);
-      controls.target.copy(center);
+      camera.position.set(center.x + dist * 0.72, center.y + dist * 0.72, center.z + dist * 0.72);
+      controls.target.set(center.x, center.y + size.y * 0.08, center.z);
       controls.minDistance = maxDim * 0.05;
       controls.maxDistance = maxDim * 4;
       controls.update();
@@ -168,18 +179,16 @@
       controls.update();
     });
 
-    // Height stops in meters (approx Beijing DEM); mesh Y = (h - z_floor) * z_exag * 0.01
-    // We color by relative Y within the terrain mesh so it stays correct even if scale changes.
     const HEIGHT_STOPS = [
-      { t: 0.00, c: new THREE.Color(0x2a6fb5) }, // very low / water-ish
-      { t: 0.06, c: new THREE.Color(0x4a9a6a) }, // low plains green
-      { t: 0.14, c: new THREE.Color(0x8fbf6a) }, // plains
-      { t: 0.28, c: new THREE.Color(0xc4b46a) }, // foothills tan
-      { t: 0.45, c: new THREE.Color(0xb07a3a) }, // mid hills brown
-      { t: 0.62, c: new THREE.Color(0x8a6a4a) }, // high hills
-      { t: 0.78, c: new THREE.Color(0x8e8e8e) }, // rock gray
-      { t: 0.90, c: new THREE.Color(0xc8c8c8) }, // high peaks
-      { t: 1.00, c: new THREE.Color(0xf2f4f8) }, // snow / summit
+      { t: 0.00, c: new THREE.Color(0x2a6fb5) },
+      { t: 0.06, c: new THREE.Color(0x4a9a6a) },
+      { t: 0.14, c: new THREE.Color(0x8fbf6a) },
+      { t: 0.28, c: new THREE.Color(0xc4b46a) },
+      { t: 0.45, c: new THREE.Color(0xb07a3a) },
+      { t: 0.62, c: new THREE.Color(0x8a6a4a) },
+      { t: 0.78, c: new THREE.Color(0x8e8e8e) },
+      { t: 0.90, c: new THREE.Color(0xc8c8c8) },
+      { t: 1.00, c: new THREE.Color(0xf2f4f8) },
     ];
 
     function sampleHeightColor(t, out) {
@@ -196,11 +205,8 @@
       const geom = mesh.geometry;
       const pos = geom.attributes.position;
       if (!pos) return;
-
-      // Use world Y after mesh matrix (glTF Y-up = elevation)
       mesh.updateWorldMatrix(true, false);
       const e = mesh.matrixWorld.elements;
-      // worldY = e1*x + e5*y + e9*z + e13
       let yMin = Infinity, yMax = -Infinity;
       const ys = new Float32Array(pos.count);
       for (let i = 0; i < pos.count; i++) {
@@ -210,14 +216,11 @@
         if (wy < yMin) yMin = wy;
         if (wy > yMax) yMax = wy;
       }
-      // Ignore extreme flat floor if present: use 2nd–98th percentile-ish via clamp on span
       const span = Math.max(1e-4, yMax - yMin);
-      // Soft-power curve so plains/hills separate more (most Beijing area is low)
       const colors = new Float32Array(pos.count * 3);
       const tmp = new THREE.Color();
       for (let i = 0; i < pos.count; i++) {
         let t = (ys[i] - yMin) / span;
-        // emphasize mid/high: gamma < 1 stretches lows less, highs more visible
         t = Math.pow(t, 0.72);
         sampleHeightColor(t, tmp);
         colors[i * 3] = tmp.r;
@@ -225,18 +228,132 @@
         colors[i * 3 + 2] = tmp.b;
       }
       geom.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-
       const mat = new THREE.MeshStandardMaterial({
-        vertexColors: true,
-        roughness: 0.88,
-        metalness: 0.02,
-        flatShading: false,
-        side: THREE.FrontSide,
+        vertexColors: true, roughness: 0.88, metalness: 0.02, flatShading: false, side: THREE.FrontSide,
       });
-      if (mesh.material && !Array.isArray(mesh.material)) {
-        mesh.material.dispose?.();
-      }
+      if (mesh.material && !Array.isArray(mesh.material)) mesh.material.dispose?.();
       mesh.material = mat;
+    }
+
+    const riverMat = new THREE.MeshStandardMaterial({
+      color: 0x2f7fd0, roughness: 0.28, metalness: 0.08,
+      emissive: 0x0a3a6a, emissiveIntensity: 0.45, side: THREE.DoubleSide,
+    });
+    const lakeMat = new THREE.MeshStandardMaterial({
+      color: 0x2a6fb8, roughness: 0.22, metalness: 0.12,
+      emissive: 0x0c4a7a, emissiveIntensity: 0.55,
+      transparent: true, opacity: 0.92, side: THREE.DoubleSide,
+    });
+
+    function lonLatToXZ(lon, lat, bounds, box) {
+      const u = (lon - bounds.west) / (bounds.east - bounds.west);
+      const v = (lat - bounds.south) / (bounds.north - bounds.south);
+      const x = THREE.MathUtils.lerp(box.min.x, box.max.x, u);
+      const z = THREE.MathUtils.lerp(box.max.z, box.min.z, v); // north → -Z in glTF
+      return { x, z, u, v };
+    }
+
+    async function loadHeightGrid() {
+      const meta = await (await fetch("./heights_meta.json")).json();
+      const buf = await (await fetch("./heights.bin")).arrayBuffer();
+      const data = new Float32Array(buf);
+      return { meta, data };
+    }
+
+    function sampleGrid(grid, lon, lat) {
+      const { meta, data } = grid;
+      const b = meta.bounds;
+      const u = (lon - b.west) / (b.east - b.west);
+      const v = (b.north - lat) / (b.north - b.south); // row0 = north
+      if (u < 0 || u > 1 || v < 0 || v > 1) return NaN;
+      const x = u * (meta.width - 1);
+      const y = v * (meta.height - 1);
+      const x0 = Math.floor(x), y0 = Math.floor(y);
+      const x1 = Math.min(x0 + 1, meta.width - 1);
+      const y1 = Math.min(y0 + 1, meta.height - 1);
+      const tx = x - x0, ty = y - y0;
+      const i = (yy, xx) => data[yy * meta.width + xx];
+      const h00 = i(y0, x0), h10 = i(y0, x1), h01 = i(y1, x0), h11 = i(y1, x1);
+      if (![h00, h10, h01, h11].every(Number.isFinite)) return NaN;
+      const h0 = h00 * (1 - tx) + h10 * tx;
+      const h1 = h01 * (1 - tx) + h11 * tx;
+      return h0 * (1 - ty) + h1 * ty;
+    }
+
+    function elevToWorldY(h, grid, box) {
+      const zFloor = grid.meta.z_floor;
+      const zMax = grid.meta.z_max || (zFloor + 2200);
+      const t = (h - zFloor) / Math.max(1, zMax - zFloor);
+      const ySpan = box.max.y - box.min.y;
+      return box.min.y + Math.min(1, Math.max(0, t)) * ySpan + ySpan * WATER_LIFT_FRAC;
+    }
+
+    function addRiverTube(group, points, radius) {
+      if (points.length < 2) return;
+      const curve = new THREE.CatmullRomCurve3(points);
+      const segs = Math.min(300, Math.max(6, points.length * 2));
+      const geo = new THREE.TubeGeometry(curve, segs, radius, 5, false);
+      group.add(new THREE.Mesh(geo, riverMat));
+    }
+
+    function addLakeMesh(group, points, radius) {
+      let pts = points.slice();
+      if (pts.length > 2 && pts[0].distanceToSquared(pts[pts.length - 1]) < 1e-4) pts = pts.slice(0, -1);
+      if (pts.length < 3) return;
+      const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
+      const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+      const cz = pts.reduce((s, p) => s + p.z, 0) / pts.length;
+      const n = pts.length;
+      const positions = new Float32Array((n + 1) * 3);
+      positions[0] = cx; positions[1] = cy; positions[2] = cz;
+      for (let i = 0; i < n; i++) {
+        positions[(i + 1) * 3] = pts[i].x;
+        positions[(i + 1) * 3 + 1] = pts[i].y;
+        positions[(i + 1) * 3 + 2] = pts[i].z;
+      }
+      const indices = [];
+      for (let i = 0; i < n; i++) indices.push(0, i + 1, (i + 1) % n + 1);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      geo.setIndex(indices);
+      geo.computeVertexNormals();
+      group.add(new THREE.Mesh(geo, lakeMat));
+      addRiverTube(group, points.concat([points[0]]), radius * 0.55);
+    }
+
+    async function addWaterOverlays(terrainRoot) {
+      const [water, grid] = await Promise.all([
+        fetch("./water.json").then((r) => r.json()),
+        loadHeightGrid(),
+      ]);
+      terrainRoot.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(terrainRoot);
+      const group = new THREE.Group();
+      group.name = "WaterOverlay";
+      const span = Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
+      const baseRadius = Math.max(1.8, span * 0.00125);
+      const bounds = water.bounds;
+
+      for (const feat of water.features || []) {
+        const coords = feat.coords || [];
+        if (coords.length < 2) continue;
+        const pts = [];
+        for (const [lon, lat] of coords) {
+          const h = sampleGrid(grid, lon, lat);
+          if (!Number.isFinite(h)) continue;
+          const { x, z } = lonLatToXZ(lon, lat, bounds, box);
+          const y = elevToWorldY(h, grid, box);
+          pts.push(new THREE.Vector3(x, y, z));
+        }
+        if (feat.kind === "river") {
+          if (pts.length >= 2) addRiverTube(group, pts, baseRadius * (feat.name.includes("引水") ? 0.75 : 1.2));
+        } else if (pts.length >= 3) {
+          addLakeMesh(group, pts, baseRadius * 1.3);
+        } else if (pts.length >= 2) {
+          addRiverTube(group, pts, baseRadius * 1.4);
+        }
+      }
+      scene.add(group);
     }
 
     const loader = new GLTFLoader();
@@ -246,27 +363,21 @@
     } catch (e) {
       console.warn("MeshoptDecoder unavailable", e);
     }
+
     loader.load(
       "./beijing_mountains.glb",
       (gltf) => {
         const root = gltf.scene;
+        root.scale.y *= VERTICAL_BOOST;
+        root.updateMatrixWorld(true);
+
         root.traverse((obj) => {
           if (!obj.isMesh) return;
           obj.castShadow = false;
           obj.receiveShadow = false;
           const name = `${obj.name || ""} ${obj.material?.name || ""}`;
           if (/river/i.test(name)) {
-            obj.position.y += 0.4;
-            const riverMat = new THREE.MeshStandardMaterial({
-              color: 0x2f6fb8,
-              roughness: 0.35,
-              metalness: 0.05,
-              emissive: 0x123a66,
-              emissiveIntensity: 0.35,
-              side: THREE.DoubleSide,
-            });
-            if (obj.material && !Array.isArray(obj.material)) obj.material.dispose?.();
-            obj.material = riverMat;
+            obj.visible = false;
             return;
           }
           applyHeightColors(obj);
@@ -274,6 +385,9 @@
         scene.add(root);
         fitCameraToObject(root);
         statusEl.classList.add("hidden");
+
+        // Water overlays after first paint (non-blocking for status)
+        addWaterOverlays(root).catch((e) => console.warn("water overlay failed", e));
       },
       (ev) => {
         if (ev.total > 0) {
@@ -295,19 +409,17 @@
       }
     );
 
-    function onResize() {
+    window.addEventListener("resize", () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
-    }
-    window.addEventListener("resize", onResize);
+    });
 
-    function animate() {
+    (function animate() {
       requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
-    }
-    animate();
+    })();
   </script>
 </body>
 </html>
