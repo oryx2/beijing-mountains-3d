@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>北京山川地形</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0b1220; font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif; color: #e8eef8; }
+    #canvas-wrap { position: fixed; inset: 0; }
+    canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+    header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+      padding: 16px 20px; pointer-events: none;
+      background: linear-gradient(180deg, rgba(8,14,28,0.75) 0%, rgba(8,14,28,0) 100%);
+    }
+    header h1 { font-size: clamp(1.1rem, 2.5vw, 1.5rem); font-weight: 600; letter-spacing: 0.04em; }
+    header p { margin-top: 4px; font-size: 0.8rem; opacity: 0.7; }
+    #hud {
+      position: fixed; right: 16px; bottom: 16px; z-index: 10;
+      display: flex; flex-direction: column; gap: 8px; align-items: flex-end;
+    }
+    button {
+      pointer-events: auto; border: 1px solid rgba(255,255,255,0.22);
+      background: rgba(16, 28, 48, 0.82); color: #e8eef8;
+      border-radius: 10px; padding: 10px 14px; font-size: 0.85rem;
+      cursor: pointer; backdrop-filter: blur(8px);
+    }
+    button:hover { background: rgba(36, 58, 92, 0.9); }
+    #status {
+      position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      z-index: 5; text-align: center; pointer-events: none;
+      background: rgba(8,14,28,0.72); padding: 18px 22px; border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.12); min-width: 220px;
+    }
+    #status.hidden { display: none; }
+    .bar {
+      margin-top: 12px; height: 6px; border-radius: 999px; overflow: hidden;
+      background: rgba(255,255,255,0.12);
+    }
+    .bar > i {
+      display: block; height: 100%; width: 0%;
+      background: linear-gradient(90deg, #5b9cff, #7ed0a7);
+      transition: width 0.15s ease;
+    }
+    #hint {
+      position: fixed; left: 16px; bottom: 16px; z-index: 10;
+      font-size: 0.75rem; opacity: 0.55; max-width: 260px; line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>北京山川地形</h1>
+    <p>西山 · 军都山 · Copernicus DEM · 拖动旋转 · 滚轮缩放</p>
+  </header>
+  <div id="canvas-wrap"></div>
+  <div id="status">
+    <div id="status-text">正在加载地形…</div>
+    <div class="bar"><i id="progress"></i></div>
+  </div>
+  <div id="hud">
+    <button id="btn-reset" type="button" title="重置视角">重置视角</button>
+  </div>
+  <div id="hint">左键旋转 · 右键平移 · 滚轮缩放</div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./vendor/three/build/three.module.js",
+      "three/addons/": "./vendor/three/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+    import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+
+    const wrap = document.getElementById("canvas-wrap");
+    const statusEl = document.getElementById("status");
+    const statusText = document.getElementById("status-text");
+    const progressEl = document.getElementById("progress");
+    const btnReset = document.getElementById("btn-reset");
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    wrap.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87b5e0);
+    scene.fog = new THREE.Fog(0x87b5e0, 1800, 5200);
+
+    // Soft gradient sky via hemisphere + directional lights
+    const hemi = new THREE.HemisphereLight(0xcfe8ff, 0x4a5a3a, 0.85);
+    scene.add(hemi);
+    const sun = new THREE.DirectionalLight(0xfff2d6, 1.35);
+    sun.position.set(600, 900, 400);
+    scene.add(sun);
+    const fill = new THREE.DirectionalLight(0xa8c4ff, 0.35);
+    fill.position.set(-500, 300, -600);
+    scene.add(fill);
+
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.5, 20000);
+    camera.position.set(900, 650, 900);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.minDistance = 80;
+    controls.maxDistance = 4500;
+    controls.maxPolarAngle = Math.PI * 0.49;
+    controls.target.set(0, 20, 0);
+
+    let defaultCam = camera.position.clone();
+    let defaultTarget = controls.target.clone();
+
+    function fitCameraToObject(root) {
+      const box = new THREE.Box3().setFromObject(root);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const dist = maxDim * 0.95;
+      camera.near = Math.max(0.1, maxDim / 500);
+      camera.far = maxDim * 20;
+      camera.updateProjectionMatrix();
+      camera.position.set(center.x + dist * 0.75, center.y + dist * 0.55, center.z + dist * 0.75);
+      controls.target.copy(center);
+      controls.minDistance = maxDim * 0.05;
+      controls.maxDistance = maxDim * 4;
+      controls.update();
+      defaultCam = camera.position.clone();
+      defaultTarget = controls.target.clone();
+      // Fog relative to size
+      scene.fog.near = maxDim * 0.9;
+      scene.fog.far = maxDim * 3.2;
+    }
+
+    btnReset.addEventListener("click", () => {
+      camera.position.copy(defaultCam);
+      controls.target.copy(defaultTarget);
+      controls.update();
+    });
+
+    const loader = new GLTFLoader();
+    loader.load(
+      "./beijing_mountains.glb",
+      (gltf) => {
+        const root = gltf.scene;
+        root.traverse((obj) => {
+          if (obj.isMesh) {
+            obj.castShadow = false;
+            obj.receiveShadow = false;
+            if (obj.material) {
+              const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+              for (const m of mats) {
+                m.side = THREE.FrontSide;
+                if (m.color && m.name && /river/i.test(m.name + (obj.name || ""))) {
+                  m.emissive = new THREE.Color(0x1a3a66);
+                  m.emissiveIntensity = 0.25;
+                }
+              }
+            }
+            // Slightly lift river meshes if named
+            if (/river/i.test(obj.name || "")) {
+              obj.position.y += 0.4;
+            }
+          }
+        });
+        scene.add(root);
+        fitCameraToObject(root);
+        statusEl.classList.add("hidden");
+      },
+      (ev) => {
+        if (ev.total > 0) {
+          const pct = Math.round((ev.loaded / ev.total) * 100);
+          progressEl.style.width = pct + "%";
+          statusText.textContent = `正在加载地形… ${pct}%`;
+        } else {
+          statusText.textContent = `正在加载地形… ${(ev.loaded / 1048576).toFixed(1)} MB`;
+        }
+      },
+      (err) => {
+        console.error(err);
+        const viaFile = location.protocol === "file:";
+        statusText.textContent = viaFile
+          ? "加载失败：请用本地 HTTP 打开（不要直接双击文件）"
+          : "地形模型加载失败（网络或文件缺失）。请刷新或改用本机服务。";
+        progressEl.style.width = "100%";
+        progressEl.style.background = "#c44";
+      }
+    );
+
+    function onResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+    window.addEventListener("resize", onResize);
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>
