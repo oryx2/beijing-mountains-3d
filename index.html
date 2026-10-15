@@ -64,6 +64,41 @@
       background: linear-gradient(90deg, #5b9cff, #7ed0a7);
       transition: width 0.15s ease;
     }
+
+    .geo-label {
+      pointer-events: none;
+      user-select: none;
+      white-space: nowrap;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+      letter-spacing: 0.02em;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.28);
+      border: 1px solid rgba(255,255,255,0.14);
+      transform: translate(-50%, -100%);
+      line-height: 1.35;
+    }
+    .geo-label.district {
+      font-size: 11px;
+      font-weight: 500;
+      color: rgba(236, 242, 252, 0.92);
+      background: rgba(12, 22, 40, 0.62);
+    }
+    .geo-label.mountain {
+      font-size: 12px;
+      font-weight: 650;
+      color: #fff8ef;
+      background: rgba(28, 22, 14, 0.78);
+      border-color: rgba(255, 210, 150, 0.28);
+    }
+    .geo-label.lake, .geo-label.river {
+      font-size: 11px;
+      font-weight: 560;
+      color: #e6f4ff;
+      background: rgba(8, 36, 64, 0.78);
+      border-color: rgba(120, 190, 255, 0.35);
+    }
+    .geo-label.river { font-weight: 500; opacity: 0.95; }
     #hint {
       position: fixed; left: 16px; bottom: 16px; z-index: 10;
       font-size: 0.75rem; opacity: 0.55; max-width: 280px; line-height: 1.4;
@@ -73,7 +108,7 @@
 <body>
   <header>
     <h1>北京山川地形</h1>
-    <p>北京市域边界 · 西山 / 军都山 · 高度夸张 · 主要湖河 · 拖动旋转 · 滚轮缩放</p>
+    <p>北京市域 · 区县 / 名山 / 湖河标注 · 高度夸张 · 拖动旋转 · 滚轮缩放</p>
   </header>
   <div id="canvas-wrap"></div>
   <div id="status">
@@ -86,10 +121,11 @@
       <div class="swatch"></div>
       <div class="row"><span>平原 / 河</span><span>高山</span></div>
       <div class="water"><i></i><span>主要湖河</span></div>
+      <div class="water" style="margin-top:4px;opacity:0.75"><span>区县 · 名山 · 湖河标注</span></div>
     </div>
     <button id="btn-reset" type="button" title="重置视角">重置视角</button>
   </div>
-  <div id="hint">左键旋转 · 右键平移 · 滚轮缩放<br/>山高已夸张显示 · 蓝色为湖河</div>
+  <div id="hint">左键旋转 · 右键平移 · 滚轮缩放<br/>山高已夸张 · 标注：区县 / 山 / 湖河</div>
 
   <script type="importmap">
   {
@@ -105,6 +141,7 @@
     import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
     import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
     import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+    import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
 
     // Mesh already has z_exaggeration ≈ 2.0; boost Y → ~5.5× total
     const VERTICAL_BOOST = 2.75;
@@ -123,6 +160,13 @@
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15;
     wrap.appendChild(renderer.domElement);
+
+    const labelRenderer = new CSS2DRenderer();
+    labelRenderer.setSize(window.innerWidth, window.innerHeight);
+    labelRenderer.domElement.style.position = "absolute";
+    labelRenderer.domElement.style.inset = "0";
+    labelRenderer.domElement.style.pointerEvents = "none";
+    wrap.appendChild(labelRenderer.domElement);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x7eb6e8);
@@ -321,11 +365,55 @@
       addRiverTube(group, points.concat([points[0]]), radius * 0.55);
     }
 
-    async function addWaterOverlays(terrainRoot) {
-      const [water, grid] = await Promise.all([
-        fetch("./water.json").then((r) => r.json()),
-        loadHeightGrid(),
-      ]);
+
+    const LABEL_LIFT_FRAC = 0.012;
+
+    function makeLabelEl(name, kind) {
+      const el = document.createElement("div");
+      el.className = `geo-label ${kind}`;
+      el.textContent = name;
+      return el;
+    }
+
+    async function addLabels(terrainRoot, grid) {
+      const data = await (await fetch("./labels.json")).json();
+      terrainRoot.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(terrainRoot);
+      const bounds = data.bounds || grid.meta.bounds;
+      const ySpan = box.max.y - box.min.y;
+      const group = new THREE.Group();
+      group.name = "GeoLabels";
+      let placed = 0;
+      for (const lab of data.labels || []) {
+        const { lon, lat, name, kind } = lab;
+        if (![lon, lat].every(Number.isFinite) || !name) continue;
+        let h = sampleGrid(grid, lon, lat);
+        if (!Number.isFinite(h)) {
+          // soft fallback: slightly inside bounds sample
+          h = sampleGrid(grid,
+            Math.min(bounds.east - 1e-4, Math.max(bounds.west + 1e-4, lon)),
+            Math.min(bounds.north - 1e-4, Math.max(bounds.south + 1e-4, lat)));
+        }
+        if (!Number.isFinite(h)) continue;
+        const { x, z } = lonLatToXZ(lon, lat, bounds, box);
+        let y = elevToWorldY(h, grid, box);
+        // mountains float a bit higher; districts sit closer to ground
+        const boost = kind === "mountain" ? 1.6 : kind === "district" ? 0.7 : 1.0;
+        y += ySpan * LABEL_LIFT_FRAC * boost;
+        const obj = new CSS2DObject(makeLabelEl(name, kind || "district"));
+        obj.position.set(x, y, z);
+        obj.userData = { kind, name };
+        group.add(obj);
+        placed++;
+      }
+      scene.add(group);
+      console.info(`labels placed: ${placed}`);
+      return group;
+    }
+
+    async function addWaterOverlays(terrainRoot, preloadedGrid) {
+      const water = await fetch("./water.json").then((r) => r.json());
+      const grid = preloadedGrid || await loadHeightGrid();
       terrainRoot.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(terrainRoot);
       const group = new THREE.Group();
@@ -386,8 +474,18 @@
         fitCameraToObject(root);
         statusEl.classList.add("hidden");
 
-        // Water overlays after first paint (non-blocking for status)
-        addWaterOverlays(root).catch((e) => console.warn("water overlay failed", e));
+        // Water + labels after first paint (non-blocking for status)
+        (async () => {
+          try {
+            const grid = await loadHeightGrid();
+            await Promise.all([
+              addWaterOverlays(root, grid),
+              addLabels(root, grid),
+            ]);
+          } catch (e) {
+            console.warn("overlays failed", e);
+          }
+        })();
       },
       (ev) => {
         if (ev.total > 0) {
@@ -413,12 +511,14 @@
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+      labelRenderer.setSize(window.innerWidth, window.innerHeight);
     });
 
     (function animate() {
       requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
+      labelRenderer.render(scene, camera);
     })();
   </script>
 </body>
