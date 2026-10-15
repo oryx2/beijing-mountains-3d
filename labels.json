@@ -1,46 +1,238 @@
 {
-  "bounds": {"west": 115.423411, "east": 117.514561, "south": 39.44215, "north": 41.0608},
+  "bounds": {
+    "west": 115.423411,
+    "east": 117.515011,
+    "south": 38.9008,
+    "north": 41.0608
+  },
   "labels": [
-    {"name": "东城", "kind": "district", "lon": 116.42, "lat": 39.93},
-    {"name": "西城", "kind": "district", "lon": 116.37, "lat": 39.91},
-    {"name": "朝阳", "kind": "district", "lon": 116.48, "lat": 39.95},
-    {"name": "海淀", "kind": "district", "lon": 116.30, "lat": 39.98},
-    {"name": "丰台", "kind": "district", "lon": 116.29, "lat": 39.86},
-    {"name": "石景山", "kind": "district", "lon": 116.20, "lat": 39.91},
-    {"name": "门头沟", "kind": "district", "lon": 116.00, "lat": 39.94},
-    {"name": "房山", "kind": "district", "lon": 115.98, "lat": 39.75},
-    {"name": "通州", "kind": "district", "lon": 116.66, "lat": 39.91},
-    {"name": "顺义", "kind": "district", "lon": 116.65, "lat": 40.13},
-    {"name": "昌平", "kind": "district", "lon": 116.23, "lat": 40.22},
-    {"name": "大兴", "kind": "district", "lon": 116.34, "lat": 39.73},
-    {"name": "怀柔", "kind": "district", "lon": 116.63, "lat": 40.32},
-    {"name": "平谷", "kind": "district", "lon": 117.12, "lat": 40.14},
-    {"name": "密云", "kind": "district", "lon": 116.84, "lat": 40.38},
-    {"name": "延庆", "kind": "district", "lon": 115.97, "lat": 40.46},
-
-    {"name": "灵山", "kind": "mountain", "lon": 115.60, "lat": 40.05},
-    {"name": "百花山", "kind": "mountain", "lon": 115.60, "lat": 39.85},
-    {"name": "妙峰山", "kind": "mountain", "lon": 116.02, "lat": 40.07},
-    {"name": "香山", "kind": "mountain", "lon": 116.19, "lat": 39.99},
-    {"name": "云蒙山", "kind": "mountain", "lon": 116.75, "lat": 40.55},
-    {"name": "雾灵山", "kind": "mountain", "lon": 117.40, "lat": 40.60},
-    {"name": "西山", "kind": "mountain", "lon": 116.05, "lat": 39.98},
-    {"name": "军都山", "kind": "mountain", "lon": 116.20, "lat": 40.35},
-    {"name": "八达岭", "kind": "mountain", "lon": 116.00, "lat": 40.36},
-
-    {"name": "密云水库", "kind": "lake", "lon": 116.90, "lat": 40.51},
-    {"name": "官厅水库", "kind": "lake", "lon": 115.72, "lat": 40.36},
-    {"name": "怀柔水库", "kind": "lake", "lon": 116.60, "lat": 40.32},
-    {"name": "十三陵水库", "kind": "lake", "lon": 116.26, "lat": 40.26},
-    {"name": "昆明湖", "kind": "lake", "lon": 116.27, "lat": 39.99},
-    {"name": "金海湖", "kind": "lake", "lon": 117.32, "lat": 40.18},
-
-    {"name": "永定河", "kind": "river", "lon": 116.10, "lat": 39.95},
-    {"name": "潮白河", "kind": "river", "lon": 116.77, "lat": 40.00},
-    {"name": "温榆河", "kind": "river", "lon": 116.49, "lat": 40.11},
-    {"name": "北运河", "kind": "river", "lon": 116.80, "lat": 39.77},
-    {"name": "拒马河", "kind": "river", "lon": 115.55, "lat": 39.68},
-    {"name": "白河", "kind": "river", "lon": 116.79, "lat": 40.61},
-    {"name": "潮河", "kind": "river", "lon": 116.97, "lat": 40.41}
+    {
+      "name": "东城",
+      "kind": "district",
+      "lon": 116.42,
+      "lat": 39.93
+    },
+    {
+      "name": "西城",
+      "kind": "district",
+      "lon": 116.37,
+      "lat": 39.91
+    },
+    {
+      "name": "朝阳",
+      "kind": "district",
+      "lon": 116.48,
+      "lat": 39.95
+    },
+    {
+      "name": "海淀",
+      "kind": "district",
+      "lon": 116.3,
+      "lat": 39.98
+    },
+    {
+      "name": "丰台",
+      "kind": "district",
+      "lon": 116.29,
+      "lat": 39.86
+    },
+    {
+      "name": "石景山",
+      "kind": "district",
+      "lon": 116.2,
+      "lat": 39.91
+    },
+    {
+      "name": "门头沟",
+      "kind": "district",
+      "lon": 116.0,
+      "lat": 39.94
+    },
+    {
+      "name": "房山",
+      "kind": "district",
+      "lon": 115.98,
+      "lat": 39.75
+    },
+    {
+      "name": "通州",
+      "kind": "district",
+      "lon": 116.66,
+      "lat": 39.91
+    },
+    {
+      "name": "顺义",
+      "kind": "district",
+      "lon": 116.65,
+      "lat": 40.13
+    },
+    {
+      "name": "昌平",
+      "kind": "district",
+      "lon": 116.23,
+      "lat": 40.22
+    },
+    {
+      "name": "大兴",
+      "kind": "district",
+      "lon": 116.34,
+      "lat": 39.73
+    },
+    {
+      "name": "怀柔",
+      "kind": "district",
+      "lon": 116.63,
+      "lat": 40.32
+    },
+    {
+      "name": "平谷",
+      "kind": "district",
+      "lon": 117.12,
+      "lat": 40.14
+    },
+    {
+      "name": "密云",
+      "kind": "district",
+      "lon": 116.84,
+      "lat": 40.38
+    },
+    {
+      "name": "延庆",
+      "kind": "district",
+      "lon": 115.97,
+      "lat": 40.46
+    },
+    {
+      "name": "灵山",
+      "kind": "mountain",
+      "lon": 115.6,
+      "lat": 40.05
+    },
+    {
+      "name": "百花山",
+      "kind": "mountain",
+      "lon": 115.6,
+      "lat": 39.85
+    },
+    {
+      "name": "妙峰山",
+      "kind": "mountain",
+      "lon": 116.02,
+      "lat": 40.07
+    },
+    {
+      "name": "香山",
+      "kind": "mountain",
+      "lon": 116.19,
+      "lat": 39.99
+    },
+    {
+      "name": "云蒙山",
+      "kind": "mountain",
+      "lon": 116.75,
+      "lat": 40.55
+    },
+    {
+      "name": "雾灵山",
+      "kind": "mountain",
+      "lon": 117.4,
+      "lat": 40.6
+    },
+    {
+      "name": "西山",
+      "kind": "mountain",
+      "lon": 116.05,
+      "lat": 39.98
+    },
+    {
+      "name": "军都山",
+      "kind": "mountain",
+      "lon": 116.2,
+      "lat": 40.35
+    },
+    {
+      "name": "八达岭",
+      "kind": "mountain",
+      "lon": 116.0,
+      "lat": 40.36
+    },
+    {
+      "name": "密云水库",
+      "kind": "lake",
+      "lon": 116.9,
+      "lat": 40.51
+    },
+    {
+      "name": "官厅水库",
+      "kind": "lake",
+      "lon": 115.72,
+      "lat": 40.36
+    },
+    {
+      "name": "怀柔水库",
+      "kind": "lake",
+      "lon": 116.6,
+      "lat": 40.32
+    },
+    {
+      "name": "十三陵水库",
+      "kind": "lake",
+      "lon": 116.26,
+      "lat": 40.26
+    },
+    {
+      "name": "昆明湖",
+      "kind": "lake",
+      "lon": 116.27,
+      "lat": 39.99
+    },
+    {
+      "name": "金海湖",
+      "kind": "lake",
+      "lon": 117.32,
+      "lat": 40.18
+    },
+    {
+      "name": "永定河",
+      "kind": "river",
+      "lon": 116.1,
+      "lat": 39.95
+    },
+    {
+      "name": "潮白河",
+      "kind": "river",
+      "lon": 116.77,
+      "lat": 40.0
+    },
+    {
+      "name": "温榆河",
+      "kind": "river",
+      "lon": 116.49,
+      "lat": 40.11
+    },
+    {
+      "name": "北运河",
+      "kind": "river",
+      "lon": 116.8,
+      "lat": 39.77
+    },
+    {
+      "name": "拒马河",
+      "kind": "river",
+      "lon": 115.55,
+      "lat": 39.68
+    },
+    {
+      "name": "白河",
+      "kind": "river",
+      "lon": 116.79,
+      "lat": 40.61
+    },
+    {
+      "name": "潮河",
+      "kind": "river",
+      "lon": 116.97,
+      "lat": 40.41
+    }
   ]
 }
