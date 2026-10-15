@@ -108,7 +108,7 @@
 <body>
   <header>
     <h1>北京山川地形</h1>
-    <p>北京市域 · 区县 / 名山 / 湖河标注 · 高度夸张 · 拖动旋转 · 滚轮缩放</p>
+    <p>北京市域 · 区界 · 区县 / 名山 / 湖河标注 · 高度夸张 · 拖动旋转 · 滚轮缩放</p>
   </header>
   <div id="canvas-wrap"></div>
   <div id="status">
@@ -121,11 +121,14 @@
       <div class="swatch"></div>
       <div class="row"><span>平原 / 河</span><span>高山</span></div>
       <div class="water"><i></i><span>主要湖河</span></div>
+      <div class="water" style="margin-top:4px;opacity:0.85">
+        <i style="background:#d8e0ec;box-shadow:none;opacity:0.85"></i><span>行政区界</span>
+      </div>
       <div class="water" style="margin-top:4px;opacity:0.75"><span>区县 · 名山 · 湖河标注</span></div>
     </div>
     <button id="btn-reset" type="button" title="重置视角">重置视角</button>
   </div>
-  <div id="hint">左键旋转 · 右键平移 · 滚轮缩放<br/>山高已夸张 · 标注：区县 / 山 / 湖河</div>
+  <div id="hint">左键旋转 · 右键平移 · 滚轮缩放<br/>山高已夸张 · 区界 + 标注：区县 / 山 / 湖河</div>
 
   <script type="importmap">
   {
@@ -366,6 +369,52 @@
     }
 
 
+    const DISTRICT_LIFT_FRAC = 0.0055;
+
+    async function addDistrictBoundaries(terrainRoot, grid) {
+      const data = await (await fetch("./districts.json")).json();
+      terrainRoot.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(terrainRoot);
+      const bounds = data.bounds || grid.meta.bounds;
+      const ySpan = box.max.y - box.min.y;
+      const group = new THREE.Group();
+      group.name = "DistrictBoundaries";
+
+      const mat = new THREE.LineBasicMaterial({
+        color: 0xd6dee8,
+        transparent: true,
+        opacity: 0.72,
+        depthWrite: false,
+        fog: true,
+      });
+
+      let drawn = 0;
+      for (const feat of data.features || []) {
+        for (const line of feat.lines || []) {
+          if (!line || line.length < 2) continue;
+          const pts = [];
+          for (const pair of line) {
+            const lon = pair[0], lat = pair[1];
+            if (![lon, lat].every(Number.isFinite)) continue;
+            const h = sampleGrid(grid, lon, lat);
+            if (!Number.isFinite(h)) continue;
+            const { x, z } = lonLatToXZ(lon, lat, bounds, box);
+            const y = elevToWorldY(h, grid, box) + ySpan * DISTRICT_LIFT_FRAC;
+            pts.push(new THREE.Vector3(x, y, z));
+          }
+          if (pts.length < 2) continue;
+          const geo = new THREE.BufferGeometry().setFromPoints(pts);
+          const obj = new THREE.Line(geo, mat);
+          obj.userData = { name: feat.name, adcode: feat.adcode };
+          group.add(obj);
+          drawn++;
+        }
+      }
+      scene.add(group);
+      console.info(`district boundaries: ${drawn} polylines, ${data.features?.length || 0} districts`);
+      return group;
+    }
+
     const LABEL_LIFT_FRAC = 0.012;
 
     function makeLabelEl(name, kind) {
@@ -480,6 +529,7 @@
             const grid = await loadHeightGrid();
             await Promise.all([
               addWaterOverlays(root, grid),
+              addDistrictBoundaries(root, grid),
               addLabels(root, grid),
             ]);
           } catch (e) {
