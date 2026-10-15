@@ -108,14 +108,96 @@
     .geo-label.river { font-weight: 500; opacity: 0.95; }
     #hint {
       position: fixed; left: 16px; bottom: 16px; z-index: 10;
-      font-size: 0.75rem; opacity: 0.55; max-width: 280px; line-height: 1.4;
+      font-size: 0.75rem; opacity: 0.55; max-width: 300px; line-height: 1.4;
+    }
+    #compass {
+      position: fixed; top: 72px; right: 16px; z-index: 10;
+      width: 72px; height: 72px; pointer-events: none;
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,0.35));
+    }
+    #compass .disc {
+      width: 100%; height: 100%; border-radius: 50%;
+      background: rgba(12, 22, 40, 0.78);
+      border: 1px solid rgba(255,255,255,0.28);
+      backdrop-filter: blur(8px);
+      position: relative;
+      transform-origin: 50% 50%;
+      will-change: transform;
+    }
+    #compass .tick {
+      position: absolute; left: 50%; top: 50%;
+      width: 1px; height: 8px; margin-left: -0.5px; margin-top: -30px;
+      background: rgba(232,238,248,0.35);
+      transform-origin: 50% 30px;
+    }
+    #compass .tick.e { transform: rotate(90deg); }
+    #compass .tick.s { transform: rotate(180deg); }
+    #compass .tick.w { transform: rotate(270deg); }
+    #compass .cardinal {
+      position: absolute; left: 50%; top: 50%;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+      transform: translate(-50%, -50%);
+      line-height: 1; user-select: none;
+    }
+    #compass .cardinal.n {
+      color: #ff6b5a; margin-top: -24px; font-size: 13px;
+      text-shadow: 0 0 8px rgba(255,80,60,0.45);
+    }
+    #compass .cardinal.s { color: rgba(232,238,248,0.85); margin-top: 24px; font-size: 11px; font-weight: 600; }
+    #compass .cardinal.e { color: rgba(232,238,248,0.55); margin-left: 24px; font-size: 10px; font-weight: 500; }
+    #compass .cardinal.w { color: rgba(232,238,248,0.55); margin-left: -24px; font-size: 10px; font-weight: 500; }
+    #compass .needle {
+      position: absolute; left: 50%; top: 50%;
+      width: 0; height: 0; margin-left: -5px; margin-top: -22px;
+      border-left: 5px solid transparent; border-right: 5px solid transparent;
+      border-bottom: 18px solid #ff6b5a;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35));
+    }
+    #compass .needle-s {
+      position: absolute; left: 50%; top: 50%;
+      width: 0; height: 0; margin-left: -4px; margin-top: 4px;
+      border-left: 4px solid transparent; border-right: 4px solid transparent;
+      border-top: 14px solid rgba(200,210,230,0.55);
+    }
+    #compass .hub {
+      position: absolute; left: 50%; top: 50%;
+      width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%;
+      background: #e8eef8; box-shadow: 0 0 0 2px rgba(12,22,40,0.9);
+    }
+    #compass .caption {
+      text-align: center; margin-top: 4px; font-size: 0.65rem;
+      opacity: 0.65; letter-spacing: 0.06em;
+    }
+    @keyframes place-pulse {
+      0%, 100% { opacity: 0.55; transform: scale(1); }
+      50% { opacity: 0.95; transform: scale(1.35); }
+    }
+    .place-marker {
+      width: 8px; height: 8px; border-radius: 50%;
+      pointer-events: none; user-select: none;
+      box-shadow: 0 0 0 1.5px rgba(255,255,255,0.55), 0 0 6px rgba(0,0,0,0.35);
+      transform: translate(-50%, -50%);
+      animation: place-pulse 2.4s ease-in-out infinite;
+    }
+    .place-marker.district {
+      background: rgba(200, 214, 236, 0.85);
+      box-shadow: 0 0 0 1.5px rgba(255,255,255,0.45), 0 0 5px rgba(120,160,220,0.4);
+    }
+    .place-marker.mountain {
+      background: rgba(255, 196, 120, 0.92);
+      box-shadow: 0 0 0 1.5px rgba(255,230,180,0.55), 0 0 6px rgba(255,160,60,0.45);
+      width: 9px; height: 9px;
+    }
+    .place-marker.lake, .place-marker.river {
+      background: rgba(90, 190, 255, 0.9);
+      box-shadow: 0 0 0 1.5px rgba(180,230,255,0.55), 0 0 6px rgba(60,160,255,0.5);
     }
   </style>
 </head>
 <body>
   <header>
     <h1>北京山川地形</h1>
-    <p>北京市域 · 区界 · 高度夸张 · 拖动旋转 · 滚轮缩放 · 悬停显示地名</p>
+    <p>北京市域 · 区界 · 高度夸张 · 拖动旋转 · 滚轮缩放 · 圆点悬停显示地名</p>
   </header>
   <div id="canvas-wrap"></div>
   <div id="status">
@@ -131,11 +213,27 @@
       <div class="water" style="margin-top:4px;opacity:0.85">
         <i style="background:#d8e0ec;box-shadow:none;opacity:0.85"></i><span>行政区界</span>
       </div>
-      <div class="water" style="margin-top:4px;opacity:0.75"><span>悬停地点显示名称</span></div>
+      <div class="water" style="margin-top:4px;opacity:0.75"><span>小圆点可悬停看名称</span></div>
     </div>
     <button id="btn-reset" type="button" title="重置视角">重置视角</button>
   </div>
-  <div id="hint">左键旋转 · 右键平移 · 滚轮缩放<br/>山高已夸张 · 区界常显 · 鼠标移到地点附近显示名称</div>
+  <div id="compass" aria-hidden="true">
+    <div class="disc" id="compass-disc">
+      <div class="tick"></div>
+      <div class="tick e"></div>
+      <div class="tick s"></div>
+      <div class="tick w"></div>
+      <div class="needle"></div>
+      <div class="needle-s"></div>
+      <div class="hub"></div>
+      <span class="cardinal n">北</span>
+      <span class="cardinal e">东</span>
+      <span class="cardinal s">南</span>
+      <span class="cardinal w">西</span>
+    </div>
+    <div class="caption">南北指示</div>
+  </div>
+  <div id="hint">左键旋转 · 右键平移 · 滚轮缩放<br/>山高已夸张 · 区界常显 · 小圆点可悬停/点按看名称</div>
 
   <script type="importmap">
   {
@@ -162,6 +260,7 @@
     const statusText = document.getElementById("status-text");
     const progressEl = document.getElementById("progress");
     const btnReset = document.getElementById("btn-reset");
+    const compassDisc = document.getElementById("compass-disc");
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -530,6 +629,14 @@
         obj.userData = { kind, name };
         group.add(obj);
 
+        const markerEl = document.createElement("div");
+        markerEl.className = `place-marker ${kind || "district"}`;
+        markerEl.setAttribute("aria-hidden", "true");
+        const marker = new CSS2DObject(markerEl);
+        marker.position.set(x, y, z);
+        marker.userData = { kind, name, marker: true };
+        group.add(marker);
+
         const hit = new THREE.Mesh(hitGeo, hitMat);
         hit.position.set(x, y, z);
         hit.userData = { kind, name };
@@ -542,7 +649,7 @@
       }
       scene.add(group);
       setupLabelHover();
-      console.info(`labels placed: ${placed} (hover-only, hitR=${hitRadius.toFixed(1)})`);
+      console.info(`labels placed: ${placed} (hover names + markers, hitR=${hitRadius.toFixed(1)})`);
       return group;
     }
 
@@ -650,9 +757,19 @@
       labelRenderer.setSize(window.innerWidth, window.innerHeight);
     });
 
+    function updateCompass() {
+      if (!compassDisc) return;
+      const dx = camera.position.x - controls.target.x;
+      const dz = camera.position.z - controls.target.z;
+      // north = -Z; yaw 0 when camera is south of target (looking north)
+      const yawDeg = Math.atan2(dx, dz) * (180 / Math.PI);
+      compassDisc.style.transform = `rotate(${yawDeg}deg)`;
+    }
+
     (function animate() {
       requestAnimationFrame(animate);
       controls.update();
+      updateCompass();
       renderer.render(scene, camera);
       labelRenderer.render(scene, camera);
     })();
