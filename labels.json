@@ -1,9 +1,9 @@
 {
   "bounds": {
-    "west": 115.423411,
-    "east": 117.515011,
-    "south": 38.9008,
-    "north": 41.0608
+    "west": 114.92,
+    "east": 118.0196,
+    "south": 38.899300000000004,
+    "north": 41.56
   },
   "labels": [
     {
@@ -233,6 +233,150 @@
       "kind": "river",
       "lon": 116.97,
       "lat": 40.41
+    },
+    {
+      "name": "涿州",
+      "kind": "neighbor",
+      "lon": 115.97,
+      "lat": 39.49
+    },
+    {
+      "name": "固安",
+      "kind": "neighbor",
+      "lon": 116.3,
+      "lat": 39.44
+    },
+    {
+      "name": "廊坊",
+      "kind": "neighbor",
+      "lon": 116.7,
+      "lat": 39.52
+    },
+    {
+      "name": "三河",
+      "kind": "neighbor",
+      "lon": 117.08,
+      "lat": 39.98
+    },
+    {
+      "name": "香河",
+      "kind": "neighbor",
+      "lon": 117.0,
+      "lat": 39.76
+    },
+    {
+      "name": "大厂",
+      "kind": "neighbor",
+      "lon": 116.99,
+      "lat": 39.89
+    },
+    {
+      "name": "怀来",
+      "kind": "neighbor",
+      "lon": 115.52,
+      "lat": 40.41
+    },
+    {
+      "name": "赤城",
+      "kind": "neighbor",
+      "lon": 115.83,
+      "lat": 40.91
+    },
+    {
+      "name": "兴隆",
+      "kind": "neighbor",
+      "lon": 117.51,
+      "lat": 40.42
+    },
+    {
+      "name": "遵化",
+      "kind": "neighbor",
+      "lon": 117.97,
+      "lat": 40.19
+    },
+    {
+      "name": "涞水",
+      "kind": "neighbor",
+      "lon": 115.71,
+      "lat": 39.39
+    },
+    {
+      "name": "丰宁",
+      "kind": "neighbor",
+      "lon": 116.65,
+      "lat": 41.21
+    },
+    {
+      "name": "滦平",
+      "kind": "neighbor",
+      "lon": 117.33,
+      "lat": 40.94
+    },
+    {
+      "name": "玉田",
+      "kind": "neighbor",
+      "lon": 117.74,
+      "lat": 39.9
+    },
+    {
+      "name": "武清",
+      "kind": "neighbor",
+      "lon": 117.05,
+      "lat": 39.38
+    },
+    {
+      "name": "蓟州",
+      "kind": "neighbor",
+      "lon": 117.41,
+      "lat": 40.05
+    },
+    {
+      "name": "张家口",
+      "kind": "neighbor",
+      "lon": 114.98,
+      "lat": 40.78
+    },
+    {
+      "name": "承德",
+      "kind": "neighbor",
+      "lon": 117.93,
+      "lat": 40.97
+    },
+    {
+      "name": "保定",
+      "kind": "neighbor",
+      "lon": 115.47,
+      "lat": 38.95
+    },
+    {
+      "name": "海陀山",
+      "kind": "mountain",
+      "lon": 115.82,
+      "lat": 40.57
+    },
+    {
+      "name": "小五台",
+      "kind": "mountain",
+      "lon": 115.05,
+      "lat": 39.9
+    },
+    {
+      "name": "白河堡水库",
+      "kind": "lake",
+      "lon": 116.35,
+      "lat": 40.65
+    },
+    {
+      "name": "高碑店",
+      "kind": "neighbor",
+      "lon": 115.88,
+      "lat": 39.33
+    },
+    {
+      "name": "涿鹿",
+      "kind": "neighbor",
+      "lon": 115.4,
+      "lat": 40.38
     }
   ]
 }

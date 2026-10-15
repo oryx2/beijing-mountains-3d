@@ -99,6 +99,18 @@
       transform: translate(-50%, -50%);
       text-shadow: 0 1px 2px rgba(0,0,0,0.45);
     }
+    .geo-label.neighbor {
+      font-size: 10px;
+      font-weight: 500;
+      color: rgba(190, 230, 255, 0.88);
+      background: rgba(8, 28, 48, 0.42);
+      border-color: rgba(120, 190, 255, 0.22);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      transform: translate(-50%, -50%);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+      opacity: 0.82;
+    }
+    .geo-label.neighbor.always { opacity: 0.82; }
     .geo-label.mountain {
       font-size: 12px;
       font-weight: 650;
@@ -257,7 +269,7 @@
 <body>
   <header>
     <h1>北京山川地形</h1>
-    <p>北京市域 · 区界 · 区名常显 · 高度夸张 · 拖动旋转 · 滚轮缩放 · 山/河湖圆点悬停显示地名</p>
+    <p>京津冀扩图 · 北京区界 + 周边市县界 · 区/县名常显 · 山/河湖圆点悬停 · 拖动旋转</p>
   </header>
   <div id="canvas-wrap"></div>
   <div id="status">
@@ -271,9 +283,12 @@
       <div class="row"><span>平原 / 河</span><span>高山</span></div>
       <div class="water"><i></i><span>主要湖河</span></div>
       <div class="water" style="margin-top:4px;opacity:0.85">
-        <i style="background:#d8e0ec;box-shadow:none;opacity:0.85"></i><span>行政区界</span>
+        <i style="background:#d8e0ec;box-shadow:none;opacity:0.85"></i><span>北京区界</span>
       </div>
-      <div class="water" style="margin-top:4px;opacity:0.75"><span>区名常显 · 山/河湖圆点悬停看名称</span></div>
+      <div class="water" style="margin-top:4px;opacity:0.85">
+        <i style="background:#7eb8e8;box-shadow:none;opacity:0.75"></i><span>周边市县界</span>
+      </div>
+      <div class="water" style="margin-top:4px;opacity:0.75"><span>区/县名常显 · 山/河湖圆点悬停</span></div>
     </div>
     <button id="btn-reset" type="button" title="重置视角">重置视角</button>
   </div>
@@ -558,6 +573,12 @@
     const districtLineMatHi = {
       color: 0xfff2a8, transparent: true, opacity: 1, depthWrite: false, fog: false,
     };
+    const neighborLineMatBase = {
+      color: 0x7eb8e8, transparent: true, opacity: 0.42, depthWrite: false, fog: true,
+    };
+    const neighborLineMatHi = {
+      color: 0x9adbff, transparent: true, opacity: 0.95, depthWrite: false, fog: false,
+    };
 
     function namesMatch(a, b) {
       if (!a || !b) return false;
@@ -591,13 +612,14 @@
         mountainRing.geometry?.dispose?.();
         mountainRing.material?.dispose?.();
       }
-      if (kind === "district") {
+      if (kind === "district" || kind === "neighbor") {
         const key = findDistrictKey(name);
         const rec = key && districtByName.get(key);
         if (rec) {
+          const base = rec.scope === "neighbor" ? neighborLineMatBase : districtLineMatBase;
           for (const line of rec.lines) {
-            line.material.color.setHex(districtLineMatBase.color);
-            line.material.opacity = districtLineMatBase.opacity;
+            line.material.color.setHex(base.color);
+            line.material.opacity = base.opacity;
             line.material.fog = true;
             line.renderOrder = 0;
           }
@@ -622,13 +644,14 @@
       const { name, kind, markerEl } = entry;
       if (markerEl) markerEl.classList.add("active");
 
-      if (kind === "district") {
+      if (kind === "district" || kind === "neighbor") {
         const key = findDistrictKey(name);
         const rec = key && districtByName.get(key);
         if (rec) {
+          const hi = rec.scope === "neighbor" ? neighborLineMatHi : districtLineMatHi;
           for (const line of rec.lines) {
-            line.material.color.setHex(districtLineMatHi.color);
-            line.material.opacity = districtLineMatHi.opacity;
+            line.material.color.setHex(hi.color);
+            line.material.opacity = hi.opacity;
             line.material.fog = false;
             line.renderOrder = 10;
           }
@@ -698,9 +721,17 @@
         depthWrite: false, fog: false,
       });
 
+      const neighborTubeMat = new THREE.MeshBasicMaterial({
+        color: 0x7ec8ff, transparent: true, opacity: 0.88,
+        depthWrite: false, fog: false,
+      });
       let drawn = 0;
       for (const feat of data.features || []) {
-        const rec = { lines: [], tubes: [] };
+        const scope = feat.scope || "beijing";
+        const rec = { lines: [], tubes: [], scope };
+        const baseMat = scope === "neighbor" ? neighborLineMatBase : districtLineMatBase;
+        const tubeMat = scope === "neighbor" ? neighborTubeMat : tubeMatShared;
+        const neighRadius = tubeRadius * (scope === "neighbor" ? 0.85 : 1);
         for (const line of feat.lines || []) {
           if (!line || line.length < 2) continue;
           const pts = [];
@@ -714,10 +745,24 @@
             pts.push(new THREE.Vector3(x, y, z));
           }
           if (pts.length < 2) continue;
-          const lineMat = new THREE.LineBasicMaterial({ ...districtLineMatBase });
+          let lineMat;
+          if (scope === "neighbor") {
+            lineMat = new THREE.LineDashedMaterial({
+              color: neighborLineMatBase.color,
+              transparent: true,
+              opacity: neighborLineMatBase.opacity,
+              depthWrite: false,
+              fog: true,
+              dashSize: Math.max(4, spanXZ * 0.004),
+              gapSize: Math.max(3, spanXZ * 0.003),
+            });
+          } else {
+            lineMat = new THREE.LineBasicMaterial({ ...baseMat });
+          }
           const geo = new THREE.BufferGeometry().setFromPoints(pts);
           const obj = new THREE.Line(geo, lineMat);
-          obj.userData = { name: feat.name, adcode: feat.adcode };
+          if (scope === "neighbor") obj.computeLineDistances();
+          obj.userData = { name: feat.name, adcode: feat.adcode, scope };
           group.add(obj);
           rec.lines.push(obj);
 
@@ -725,11 +770,11 @@
           try {
             const curve = new THREE.CatmullRomCurve3(pts);
             const segs = Math.min(220, Math.max(8, pts.length * 2));
-            const tubeGeo = new THREE.TubeGeometry(curve, segs, tubeRadius, 5, false);
-            const tube = new THREE.Mesh(tubeGeo, tubeMatShared);
+            const tubeGeo = new THREE.TubeGeometry(curve, segs, neighRadius, 5, false);
+            const tube = new THREE.Mesh(tubeGeo, tubeMat);
             tube.visible = false;
             tube.renderOrder = 12;
-            tube.userData = { name: feat.name, highlight: true };
+            tube.userData = { name: feat.name, highlight: true, scope };
             hiGroup.add(tube);
             rec.tubes.push(tube);
           } catch (e) {
@@ -855,12 +900,12 @@
         if (!Number.isFinite(h)) continue;
         const { x, z } = lonLatToXZ(lon, lat, bounds, box);
         let y = elevToWorldY(h, grid, box);
-        const boost = kind === "mountain" ? 1.8 : kind === "district" ? 1.0 : 1.25;
+        const boost = kind === "mountain" ? 1.8 : (kind === "district" || kind === "neighbor") ? 1.0 : 1.25;
         y += ySpan * LABEL_LIFT_FRAC * boost;
 
         const kindKey = kind || "district";
         const el = makeLabelEl(name, kindKey);
-        if (kindKey === "district") {
+        if (kindKey === "district" || kindKey === "neighbor") {
           el.classList.add("always", "visible");
         }
         const obj = new CSS2DObject(el);
@@ -869,8 +914,8 @@
         group.add(obj);
 
         let markerEl = null;
-        // Districts: names always on, no hover dots. Mountains/lakes/rivers keep dots.
-        if (kindKey !== "district") {
+        // Districts/neighbors: names always on, no hover dots. Mountains/lakes/rivers keep dots.
+        if (kindKey !== "district" && kindKey !== "neighbor") {
           markerEl = document.createElement("div");
           markerEl.className = `place-marker ${kindKey}`;
           markerEl.setAttribute("aria-hidden", "true");
@@ -892,7 +937,7 @@
       }
       scene.add(group);
       setupLabelHover();
-      console.info(`labels placed: ${placed} (district names always on; mountain/water hover dots, hitR=${hitRadius.toFixed(1)})`);
+      console.info(`labels placed: ${placed} (district/neighbor names always on; mountain/water hover dots, hitR=${hitRadius.toFixed(1)})`);
       return group;
     }
 
