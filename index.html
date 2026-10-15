@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>北京山川地形</title>
+  <title>北京山川地理</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #0b1220; font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif; color: #e8eef8; }
@@ -45,8 +45,8 @@
       margin-top: 8px; display: flex; align-items: center; gap: 8px; opacity: 0.9;
     }
     #legend .water i {
-      width: 18px; height: 4px; border-radius: 2px; background: #3a8fd4;
-      box-shadow: 0 0 6px rgba(58,143,212,0.6);
+      width: 18px; height: 4px; border-radius: 2px; background: #4eb0f0;
+      box-shadow: 0 0 8px rgba(70,180,255,0.75);
     }
     #status {
       position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
@@ -87,45 +87,51 @@
     }
     .geo-label.always {
       visibility: visible;
-      opacity: 0.9;
+      opacity: 0.72;
     }
     .geo-label.district {
-      font-size: 10px;
-      font-weight: 500;
-      color: rgba(236, 242, 252, 0.9);
-      background: rgba(12, 22, 40, 0.45);
-      border-color: rgba(255,255,255,0.12);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.22);
+      font-size: 9px;
+      font-weight: 450;
+      color: rgba(210, 220, 236, 0.62);
+      background: rgba(10, 18, 32, 0.28);
+      border-color: rgba(255,255,255,0.06);
+      box-shadow: none;
       transform: translate(-50%, -50%);
-      text-shadow: 0 1px 2px rgba(0,0,0,0.45);
+      text-shadow: 0 1px 3px rgba(0,0,0,0.55);
+      letter-spacing: 0.06em;
     }
+    .geo-label.district.always { opacity: 0.62; }
     .geo-label.neighbor {
       font-size: 10px;
       font-weight: 500;
-      color: rgba(190, 230, 255, 0.88);
-      background: rgba(8, 28, 48, 0.42);
-      border-color: rgba(120, 190, 255, 0.22);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      color: rgba(170, 210, 235, 0.7);
+      background: rgba(6, 20, 36, 0.32);
+      border-color: rgba(100, 160, 210, 0.14);
+      box-shadow: none;
       transform: translate(-50%, -50%);
-      text-shadow: 0 1px 2px rgba(0,0,0,0.4);
-      opacity: 0.82;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+      opacity: 0.58;
     }
-    .geo-label.neighbor.always { opacity: 0.82; }
+    .geo-label.neighbor.always { opacity: 0.58; }
     .geo-label.mountain {
-      font-size: 12px;
-      font-weight: 650;
-      color: #fff8ef;
-      background: rgba(28, 22, 14, 0.78);
-      border-color: rgba(255, 210, 150, 0.28);
+      font-size: 13px;
+      font-weight: 700;
+      color: #fffaf0;
+      background: rgba(32, 22, 10, 0.82);
+      border-color: rgba(255, 200, 120, 0.42);
+      letter-spacing: 0.08em;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.35);
     }
     .geo-label.lake, .geo-label.river {
-      font-size: 11px;
-      font-weight: 560;
-      color: #e6f4ff;
-      background: rgba(8, 36, 64, 0.78);
-      border-color: rgba(120, 190, 255, 0.35);
+      font-size: 12px;
+      font-weight: 600;
+      color: #eff8ff;
+      background: rgba(6, 40, 72, 0.84);
+      border-color: rgba(120, 200, 255, 0.48);
+      letter-spacing: 0.04em;
+      box-shadow: 0 2px 10px rgba(0,40,80,0.35);
     }
-    .geo-label.river { font-weight: 500; opacity: 0.95; }
+    .geo-label.river { font-weight: 560; opacity: 0.98; }
     #hint {
       position: fixed; left: 16px; bottom: 16px; z-index: 10;
       font-size: 0.75rem; opacity: 0.55; max-width: 300px; line-height: 1.4;
@@ -225,20 +231,20 @@
         0 0 12px rgba(140,180,230,0.75);
     }
     .place-marker.mountain {
-      width: 14px; height: 14px;
-      background: #ffb84a;
+      width: 15px; height: 15px;
+      background: #ffc45a;
       box-shadow:
         0 0 0 2px rgba(40,24,8,0.95),
-        0 0 0 4px rgba(255,245,220,0.95),
-        0 0 14px rgba(255,160,40,0.85);
+        0 0 0 5px rgba(255,240,200,0.95),
+        0 0 18px rgba(255,150,30,0.9);
     }
     .place-marker.lake, .place-marker.river {
-      width: 13px; height: 13px;
-      background: #4ec4ff;
+      width: 14px; height: 14px;
+      background: #5ad0ff;
       box-shadow:
         0 0 0 2px rgba(8,28,48,0.95),
-        0 0 0 4px rgba(220,245,255,0.95),
-        0 0 14px rgba(50,170,255,0.85);
+        0 0 0 5px rgba(220,248,255,0.98),
+        0 0 18px rgba(40,180,255,0.95);
     }
     .place-marker.active {
       animation: none;
@@ -268,8 +274,8 @@
 </head>
 <body>
   <header>
-    <h1>北京山川地形</h1>
-    <p>京津冀扩图 · 北京区界 + 周边市县界 · 区/县名常显 · 山/河湖圆点悬停 · 拖动旋转</p>
+    <h1>北京山川地理</h1>
+    <p>西山 · 军都山 · 永定河 · 潮白河 — 看城市落在哪片山川之间</p>
   </header>
   <div id="canvas-wrap"></div>
   <div id="status">
@@ -278,17 +284,17 @@
   </div>
   <div id="hud">
     <div id="legend">
-      <div class="title">海拔着色</div>
+      <div class="title">宏观地形</div>
       <div class="swatch"></div>
-      <div class="row"><span>平原 / 河</span><span>高山</span></div>
-      <div class="water"><i></i><span>主要湖河</span></div>
-      <div class="water" style="margin-top:4px;opacity:0.85">
-        <i style="background:#d8e0ec;box-shadow:none;opacity:0.85"></i><span>北京区界</span>
+      <div class="row"><span>平原 · 河</span><span>山脊 · 高峰</span></div>
+      <div class="water"><i></i><span>永定河 · 潮白河 · 水库</span></div>
+      <div class="water" style="margin-top:6px;opacity:0.55">
+        <i style="background:#a8b4c4;box-shadow:none;opacity:0.55;height:2px"></i><span>市域区界（淡）</span>
       </div>
-      <div class="water" style="margin-top:4px;opacity:0.85">
-        <i style="background:#7eb8e8;box-shadow:none;opacity:0.75"></i><span>周边市县界</span>
+      <div class="water" style="margin-top:4px;opacity:0.48">
+        <i style="background:#6a9ab8;box-shadow:none;opacity:0.45;height:2px"></i><span>周边方位（虚线）</span>
       </div>
-      <div class="water" style="margin-top:4px;opacity:0.75"><span>区/县名常显 · 山/河湖圆点悬停</span></div>
+      <div class="water" style="margin-top:6px;opacity:0.65;line-height:1.35"><span>悬停山 / 湖河圆点看名称</span></div>
     </div>
     <button id="btn-reset" type="button" title="重置视角">重置视角</button>
   </div>
@@ -308,7 +314,7 @@
     </div>
     <div class="caption">南北指示</div>
   </div>
-  <div id="hint">左键旋转 · 右键平移 · 滚轮缩放<br/>山高已夸张 · 区界与区名常显 · 山/河湖圆点可悬停/点按看名称</div>
+  <div id="hint">拖动旋转 · 滚轮缩放 — 宏观看山川落位<br/>山高已夸张 · 悬停圆点看山湖名 · 区名淡显作方位</div>
 
   <script type="importmap">
   {
@@ -342,7 +348,7 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = 1.08;
     wrap.appendChild(renderer.domElement);
 
     const labelRenderer = new CSS2DRenderer();
@@ -353,16 +359,19 @@
     wrap.appendChild(labelRenderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x7eb6e8);
-    scene.fog = new THREE.Fog(0x7eb6e8, 1800, 5200);
+    scene.background = new THREE.Color(0x6aa8d4);
+    scene.fog = new THREE.Fog(0x6aa8d4, 2200, 5800);
 
-    scene.add(new THREE.HemisphereLight(0xd8ecff, 0x5a6a40, 0.95));
-    const sun = new THREE.DirectionalLight(0xfff0d2, 1.55);
-    sun.position.set(600, 900, 400);
+    scene.add(new THREE.HemisphereLight(0xd2e8ff, 0x4a5a38, 0.88));
+    const sun = new THREE.DirectionalLight(0xfff2dc, 1.72);
+    sun.position.set(720, 980, 320);
     scene.add(sun);
-    const fill = new THREE.DirectionalLight(0xa8c4ff, 0.4);
-    fill.position.set(-500, 300, -600);
+    const fill = new THREE.DirectionalLight(0x9bb8e8, 0.32);
+    fill.position.set(-520, 280, -640);
     scene.add(fill);
+    const rim = new THREE.DirectionalLight(0xc8d8f0, 0.22);
+    rim.position.set(-200, 500, 700);
+    scene.add(rim);
 
     const pmrem = new THREE.PMREMGenerator(renderer);
     scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -404,8 +413,8 @@
       controls.update();
       defaultCam = camera.position.clone();
       defaultTarget = controls.target.clone();
-      scene.fog.near = maxDim * 0.9;
-      scene.fog.far = maxDim * 3.2;
+      scene.fog.near = maxDim * 1.15;
+      scene.fog.far = maxDim * 3.6;
     }
 
     btnReset.addEventListener("click", () => {
@@ -464,7 +473,7 @@
       }
       geom.setAttribute("color", new THREE.BufferAttribute(colors, 3));
       const mat = new THREE.MeshStandardMaterial({
-        vertexColors: true, roughness: 0.88, metalness: 0.02, flatShading: false, side: THREE.FrontSide,
+        vertexColors: true, roughness: 0.82, metalness: 0.04, flatShading: false, side: THREE.FrontSide,
       });
       if (mesh.material && !Array.isArray(mesh.material)) mesh.material.dispose?.();
       mesh.material = mat;
@@ -475,13 +484,13 @@
     let highlightState = null;
 
     const riverMat = new THREE.MeshStandardMaterial({
-      color: 0x2f7fd0, roughness: 0.28, metalness: 0.08,
-      emissive: 0x0a3a6a, emissiveIntensity: 0.45, side: THREE.DoubleSide,
+      color: 0x3a96e8, roughness: 0.22, metalness: 0.1,
+      emissive: 0x1460a0, emissiveIntensity: 0.72, side: THREE.DoubleSide,
     });
     const lakeMat = new THREE.MeshStandardMaterial({
-      color: 0x2a6fb8, roughness: 0.22, metalness: 0.12,
-      emissive: 0x0c4a7a, emissiveIntensity: 0.55,
-      transparent: true, opacity: 0.92, side: THREE.DoubleSide,
+      color: 0x2f82d0, roughness: 0.18, metalness: 0.14,
+      emissive: 0x1480b8, emissiveIntensity: 0.78,
+      transparent: true, opacity: 0.94, side: THREE.DoubleSide,
     });
 
     function lonLatToXZ(lon, lat, bounds, box) {
@@ -575,16 +584,16 @@
     const DISTRICT_LIFT_FRAC = 0.0055;
 
     const districtLineMatBase = {
-      color: 0xd6dee8, transparent: true, opacity: 0.72, depthWrite: false, fog: true,
+      color: 0x9aa8b8, transparent: true, opacity: 0.32, depthWrite: false, fog: true,
     };
     const districtLineMatHi = {
-      color: 0xfff2a8, transparent: true, opacity: 1, depthWrite: false, fog: false,
+      color: 0xe8d890, transparent: true, opacity: 0.82, depthWrite: false, fog: false,
     };
     const neighborLineMatBase = {
-      color: 0x7eb8e8, transparent: true, opacity: 0.42, depthWrite: false, fog: true,
+      color: 0x6a98b8, transparent: true, opacity: 0.2, depthWrite: false, fog: true,
     };
     const neighborLineMatHi = {
-      color: 0x9adbff, transparent: true, opacity: 0.95, depthWrite: false, fog: false,
+      color: 0x88c4e8, transparent: true, opacity: 0.72, depthWrite: false, fog: false,
     };
 
     function namesMatch(a, b) {
@@ -724,12 +733,12 @@
       hiGroup.name = "DistrictHighlights";
       const tubeRadius = Math.max(1.6, spanXZ * 0.0011);
       const tubeMatShared = new THREE.MeshBasicMaterial({
-        color: 0xffe066, transparent: true, opacity: 0.92,
+        color: 0xe8d070, transparent: true, opacity: 0.72,
         depthWrite: false, fog: false,
       });
 
       const neighborTubeMat = new THREE.MeshBasicMaterial({
-        color: 0x7ec8ff, transparent: true, opacity: 0.88,
+        color: 0x6ab0d8, transparent: true, opacity: 0.62,
         depthWrite: false, fog: false,
       });
       let drawn = 0;
@@ -895,9 +904,12 @@
       });
       const hitGeo = new THREE.SphereGeometry(hitRadius, 10, 8);
       let placed = 0;
+      // Only major orientation names outside Beijing — cut county clutter
+      const MAJOR_NEIGHBORS = new Set(["张家口", "承德", "廊坊", "保定", "涿州"]);
       for (const lab of data.labels || []) {
         const { lon, lat, name, kind } = lab;
         if (![lon, lat].every(Number.isFinite) || !name) continue;
+        if (kind === "neighbor" && !MAJOR_NEIGHBORS.has(name)) continue;
         let h = sampleGrid(grid, lon, lat);
         if (!Number.isFinite(h)) {
           h = sampleGrid(grid,
@@ -956,7 +968,7 @@
       const group = new THREE.Group();
       group.name = "WaterOverlay";
       const span = Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
-      const baseRadius = Math.max(1.8, span * 0.00125);
+      const baseRadius = Math.max(2.2, span * 0.00145);
       const bounds = water.bounds;
 
       for (const feat of water.features || []) {
