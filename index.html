@@ -44,8 +44,8 @@
     #legend .swatch-plain {
       height: 8px; border-radius: 999px; margin: 6px 0 4px;
       background: linear-gradient(90deg,
-        #14628c 0%, #1a8a9a 20%, #26a37a 30%, #4cba4e 40%, #9ccc3c 50%,
-        #e0d43a 65%, #f0b030 80%, #e08a2a 100%);
+        #1a6a88 0%, #2d8f7a 20%, #3fa06a 40%, #5ab05a 60%,
+        #7ec85a 80%, #a8c868 100%);
     }
     #legend .row { display: flex; justify-content: space-between; opacity: 0.8; }
     #legend .water {
@@ -295,8 +295,7 @@
       <div class="swatch"></div>
       <div class="row"><span>低 · 平原</span><span>山脊 · 高峰</span></div>
       <div class="swatch-plain"></div>
-      <div class="row"><span>平原 0–100m 专用色阶：东南 ~20m</span><span>西北 ~100m</span></div>
-      <div class="water" style="margin-top:6px;opacity:0.75"><i style="background:#fff;box-shadow:none;opacity:0.5;height:1px"></i><span>等高线：平原 10m（50m 加粗）· 山区 200m</span></div>
+      <div class="row"><span>平原 东南 ~20m</span><span>西北 ~60–100m</span></div>
       <div class="water"><i></i><span>永定河 · 潮白河 · 水库</span></div>
       <div class="water" style="margin-top:6px;opacity:0.55">
         <i style="background:#a8b4c4;box-shadow:none;opacity:0.55;height:2px"></i><span>市域区界（淡）</span>
@@ -438,20 +437,19 @@
     const ELEV_Z_FLOOR = -5.0;
     const ELEV_Z_MAX = 2810.146728515625;
     // Fine ramp through the Beijing plain (~20–100 m NW vs SE), then hills/peaks.
-    // Clipped hypsometry: most of the colour budget sits in 0–100 m (plain).
     const HEIGHT_STOPS_M = [
-      { m: -5,   c: new THREE.Color(0x0e3f6e) },
-      { m: 10,   c: new THREE.Color(0x14628c) }, // lowest SE (廊坊/天津缘)
-      { m: 20,   c: new THREE.Color(0x1a8a9a) }, // SE plain ~20 m
-      { m: 30,   c: new THREE.Color(0x26a37a) },
-      { m: 40,   c: new THREE.Color(0x4cba4e) }, // urban ~40–50 m
-      { m: 50,   c: new THREE.Color(0x9ccc3c) },
-      { m: 65,   c: new THREE.Color(0xe0d43a) }, // NW piedmont
-      { m: 80,   c: new THREE.Color(0xf0b030) },
-      { m: 100,  c: new THREE.Color(0xe08a2a) }, // plain top
-      { m: 160,  c: new THREE.Color(0xa86a3a) }, // quick to hills
-      { m: 500,  c: new THREE.Color(0x8a6a4e) },
-      { m: 1200, c: new THREE.Color(0x8e8a84) },
+      { m: -5,   c: new THREE.Color(0x1a5a78) }, // lowest basins
+      { m: 15,   c: new THREE.Color(0x1f7088) }, // SE fringe
+      { m: 22,   c: new THREE.Color(0x2d8f7a) }, // SE plain ~20–25 m (大兴/通州)
+      { m: 32,   c: new THREE.Color(0x3a9e6a) },
+      { m: 42,   c: new THREE.Color(0x52b05a) }, // urban ~40–50 m
+      { m: 55,   c: new THREE.Color(0x6ec05a) }, // NW piedmont start
+      { m: 70,   c: new THREE.Color(0x8ed058) },
+      { m: 100,  c: new THREE.Color(0xb0c868) }, // plain upper / low hills
+      { m: 200,  c: new THREE.Color(0xc4b46a) },
+      { m: 400,  c: new THREE.Color(0xb07a3a) },
+      { m: 800,  c: new THREE.Color(0x8a6a4a) },
+      { m: 1400, c: new THREE.Color(0x8e8e8e) },
       { m: 2000, c: new THREE.Color(0xc8c8c8) },
       { m: 2810, c: new THREE.Color(0xf2f4f8) },
     ];
@@ -984,36 +982,6 @@
       return group;
     }
 
-    async function addContours(terrainRoot, grid) {
-      const data = await fetch("./contours.json").then((r) => r.json());
-      terrainRoot.updateMatrixWorld(true);
-      const box = new THREE.Box3().setFromObject(terrainRoot);
-      const bounds = grid.meta.bounds;
-      const lift = (box.max.y - box.min.y) * 0.0015;
-      const plain = [], major = [], hill = [];
-      for (const [elev, coords] of data.lines) {
-        const arr = elev % 50 === 0 && elev <= 150 ? major : elev <= 150 ? plain : hill;
-        let prev = null;
-        for (const [lon, lat] of coords) {
-          const h = sampleGrid(grid, lon, lat);
-          if (!Number.isFinite(h)) { prev = null; continue; }
-          const { x, z } = lonLatToXZ(lon, lat, bounds, box);
-          const t = (elev - grid.meta.z_floor) / Math.max(1, grid.meta.z_max - grid.meta.z_floor);
-          const y = elevToWorldY(h, grid, box) + lift; void t;
-          if (prev) arr.push(prev[0], prev[1], prev[2], x, y, z);
-          prev = [x, y, z];
-        }
-      }
-      const g = new THREE.Group(); g.name = "Contours";
-      const mk = (arr, color, opacity) => {
-        const geo = new THREE.BufferGeometry();
-        geo.setAttribute("position", new THREE.Float32BufferAttribute(arr, 3));
-        g.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color, transparent: true, opacity, depthWrite: false })));
-      };
-      mk(plain, 0x163040, 0.38); mk(major, 0x0c1c28, 0.7); mk(hill, 0x3a2a1a, 0.25);
-      scene.add(g);
-    }
-
     async function addWaterOverlays(terrainRoot, preloadedGrid) {
       const water = await fetch("./water.json").then((r) => r.json());
       const grid = preloadedGrid || await loadHeightGrid();
@@ -1083,7 +1051,6 @@
             const grid = await loadHeightGrid();
             await Promise.all([
               addWaterOverlays(root, grid),
-              addContours(root, grid),
               addDistrictBoundaries(root, grid),
               addLabels(root, grid),
             ]);
